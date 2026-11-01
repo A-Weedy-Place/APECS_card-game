@@ -1,0 +1,21 @@
+[
+  {"id":"coal","label":"Coal","input":"basic516","baseline":-30,"min":-50,"max":200,"unit":"% net tax/subsidy","guide":"coal.html","group":"Energy"},
+  {"id":"renewables","label":"Renewables","input":"basic520","baseline":-25,"min":-100,"max":50,"unit":"% net tax/subsidy","guide":"renewables.html","group":"Energy"},
+  {"id":"oil","label":"Oil","input":"basic517","baseline":15,"min":-50,"max":200,"unit":"% net tax/subsidy","guide":"oil.html","group":"Energy"},
+  {"id":"nuclear","label":"Nuclear","input":"basic521","baseline":-30,"min":-100,"max":50,"unit":"% net tax/subsidy","guide":"nuclear.html","group":"Energy"},
+  {"id":"gas","label":"Natural Gas","input":"basic518","baseline":-30,"min":-50,"max":200,"unit":"% net tax/subsidy","guide":"gas.html","group":"Energy"},
+  {"id":"new-zero","label":"New Zero-Carbon","input":"basic35","baseline":0,"min":0,"max":2,"unit":"breakthrough level","guide":"newtech.html","group":"Energy"},
+  {"id":"bioenergy","label":"Bioenergy","input":"basic519","baseline":-15,"min":-50,"max":200,"unit":"% net tax/subsidy","guide":"bioenergy.html","group":"Energy"},
+  {"id":"carbon-price","label":"Carbon Price","input":"basic39","baseline":5,"min":0,"max":250,"unit":"USD/ton CO2","guide":"carbonprice.html","group":"Energy"},
+  {"id":"transport-efficiency","label":"Transport Efficiency","input":"basic50","baseline":0.5,"min":0,"max":3,"unit":"%/year new-capital improvement","guide":"transport_ee.html","group":"Demand"},
+  {"id":"transport-electric","label":"Transport Electrification","input":"basic373","baseline":7,"min":0,"max":50,"unit":"% purchase subsidy","guide":"transport_elec.html","group":"Demand"},
+  {"id":"buildings-efficiency","label":"Buildings & Industry Efficiency","input":"basic47","baseline":1.2,"min":0,"max":3,"unit":"%/year new-capital improvement","guide":"buildings_ee.html","group":"Demand"},
+  {"id":"buildings-electric","label":"Buildings & Industry Electrification","input":"basic375","baseline":0,"min":0,"max":50,"unit":"% purchase subsidy","guide":"buildings_elec.html","group":"Demand"},
+  {"id":"population","label":"Population","input":"basic63","baseline":10.2,"min":9,"max":11.4,"unit":"billion people in 2100","guide":"population.html","group":"Growth"},
+  {"id":"gdp","label":"Economic Growth","input":"basic235","baseline":1.5,"min":0.5,"max":2.5,"unit":"%/year long-term GDP per person","guide":"econ_growth.html","group":"Growth"},
+  {"id":"nature-removal","label":"Nature-Based Removal","input":"basic417","baseline":0,"min":0,"max":100,"unit":"% of potential","guide":"nature_based_removal.html","group":"Removal"},
+  {"id":"tech-removal","label":"Technological Removal","input":"basic67","baseline":0,"min":0,"max":100,"unit":"% of potential","guide":"tech_removal.html","group":"Removal"},
+  {"id":"agriculture","label":"Agricultural Emissions","input":"basic60","baseline":0,"min":0,"max":100,"unit":"% of reduction potential","guide":"ag_emissions.html","group":"Land & gases"},
+  {"id":"waste","label":"Waste and Leakage","input":"basic61","baseline":0,"min":0,"max":100,"unit":"% of reduction potential","guide":"waste.html","group":"Land & gases"},
+  {"id":"deforestation","label":"Deforestation","input":"basic57","baseline":0,"min":-10,"max":1,"unit":"%/year trend","guide":"deforestation.html","group":"Land & gases"}
+]
