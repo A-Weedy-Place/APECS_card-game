@@ -2,6 +2,10 @@
 
 ## 2026-11-01 — GitHub source handoff preparation
 
+### Upload verified
+
+Initial source commit `9048d8dede67540753aed1a77d3c11cf2d8aa5be` was pushed successfully to `origin/main` at `A-Weedy-Place/APECS_card-game`. Read-back `git ls-remote` exactly matched local HEAD; branch tracking is configured and the working tree was clean. No force push, remote deletion, visibility change, deployment or database upload. This documentation-only follow-up records the verified upload. Vercel's official SQLite guidance confirms local files cannot provide shared durable function storage: https://vercel.com/kb/guide/is-sqlite-supported-in-vercel . The project still also needs a supported hosted model provider/worker and private production secrets before deployment.
+
 User explicitly requested initialising Git in this workspace and pushing the game to `https://github.com/A-Weedy-Place/APECS_card-game`. Verified Git2.50.0, GitHub CLI2.100.0, existing keyring authentication as A-Weedy-Place, destination ADMIN permission and an empty private repository. Git user identity is already configured. Extended ignores for local databases, logs, credential files and Vercel-local metadata. No environment secret or player database is intended for staging. Source validation, staged-file review, commit and remote push are pending. Vercel deployment is not requested in this turn; storage/worker limitations remain documented.
 
 Pre-push verification completed: 104/104 unit tests, standalone typecheck, production build and 7/7 isolated browser tests passed. The latter includes all-card phone bounds and 40 simultaneous players/400 rounds (local p95 1049ms/max1216ms, no model jobs). Preview3000 returned200. Git staged558 source/documentation/asset files totalling10.88MiB; no file exceeds1MiB. Checked the actual staged index for credential/private-key patterns (none found), ignored-directory/database/environment file inclusion (none), and whitespace errors (none). `.env.example` contains placeholders only. Working tree has no unstaged changes. Initial commit/push and remote-SHA verification are the next operation.
