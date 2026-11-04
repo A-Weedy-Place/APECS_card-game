@@ -1,5 +1,11 @@
 # Local operation and verification
 
+## Hosted game — 2026-11-02
+
+Live game: https://apecs-card-game.vercel.app ; public projector: `/leaderboard`; private organiser login: `/admin`. User-requested password is configured as an environment hash, not in documentation/source. Local preview remains at3000 with the same requested password. Hosted storage is the separate APECS COP31 Supabase project, not the connected neodym project. Read14-hosting-admin.md for account, schema, tested load and model limitations. `.env.local`, `.env.deploy.local`, `data/` and `supabase/.temp` stay private and ignored.
+
+`npm run test:postgres` runs against a separate loopback Postgres17 Docker service on54322, creates/drops its own random test database and refuses other targets. `scripts/verify-deployment.ts` is an opt-in live30-player check requiring admin password on stdin and ignored provisioning configuration; it removes only its own verified generated records. Do not use ordinary browser fixtures against production. Production publishing uses `vercel deploy --prod --yes --non-interactive`; no automatic Git commit/push is requested. Keep ENROADS_BROWSER_ENABLED=0 on Vercel. Pending temperatures do not rank.
+
 ## GitHub handoff — 2026-11-01
 
 User authorised Git initialisation and pushing this project to `A-Weedy-Place/APECS_card-game`. Include source, tests, scripts, context and attributed assets. Exclude environment secrets, SQLite/player/admin records, dependencies, build output, screenshots/traces and local machine credentials. Authentication uses the existing GitHub CLI/keyring; no credential is copied into the project. This source handoff is not a deployment. Before Vercel, replace local SQLite with durable hosted storage and replace the installed-Edge/persistent-process model worker with a supported licensed provider and suitable job architecture. Production must use a private ADMIN_TOKEN; the local development fallback is not a production key.

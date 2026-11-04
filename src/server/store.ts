@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { createRun, GameError, publicRun, redactPublicRun, takeAction, takeCardBatch, takeSpecialAction } from "@/game/engine";
-import type { AdminData, AdminRecord, AttemptStatus, LeaderboardEntry, PublicRun, RunState, SpecialCommand } from "@/game/types";
+import type { AdminActivity, AdminData, AdminRecord, AttemptStatus, LeaderboardEntry, PublicRun, RunState, SpecialCommand } from "@/game/types";
 import { journalModeFor } from "./database-config";
 import { RULES_VERSION } from "@/game/config";
 import { settingsFor } from "@/game/policy-catalogue";
@@ -52,7 +52,11 @@ function db() {
       CREATE TABLE IF NOT EXISTS admin_audit (id TEXT PRIMARY KEY, run_id TEXT, action TEXT NOT NULL, changes TEXT NOT NULL, created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS event_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS model_evaluations (scenario_key TEXT PRIMARY KEY, status TEXT NOT NULL, result TEXT, error TEXT, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, until_ms INTEGER NOT NULL);
+      CREATE INDEX IF NOT EXISTS attempts_run ON run_attempts(run_id);
     `);
+    const columns = connection.prepare("PRAGMA table_info(actions)").all() as {name:string}[];
+    if (!columns.some(column => column.name === "created_at")) connection.exec("ALTER TABLE actions ADD COLUMN created_at TEXT");
     upgraded.add(connection);
   }
   return connection;
@@ -65,8 +69,8 @@ function visibleRun(state: RunState | PublicRun): PublicRun {
   const control = controls(state.id);
   if (control?.deleted) throw new GameError("This game was removed by the organiser.", 410);
   const visible = "phase" in state ? redactPublicRun(state as PublicRun) : publicRun(state as RunState);
-  const evaluation=visible.rulesVersion==="prototype-0.9"&&visible.finishedAt?modelStatus(settingsFor(visible.history)):undefined;
-  return { ...visible, nickname: control?.display_name ?? visible.nickname, country: control?.country ?? visible.country, score: visible.rulesVersion==="prototype-0.9"?null:visible.finishedAt ? control?.score_override ?? visible.score : visible.score,
+  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?modelStatus(settingsFor(visible.history)):undefined;
+  return { ...visible, nickname: control?.display_name ?? visible.nickname, country: control?.country ?? visible.country, score: modelRules(visible.rulesVersion)?null:visible.finishedAt ? control?.score_override ?? visible.score : visible.score,
     ...(evaluation?{modelEvaluation:evaluation,...(evaluation.status==="complete"?{projection:{...visible.projection,kind:"model" as const,model:"En-ROADS",version:evaluation.modelVersion!,temperatureC:evaluation.temperatureC,caveat:"Experimental public-UI evaluation of the full scenario. Conditional projection, not a prediction or vendor endorsement."}}:{})}:{}) };
 }
 function ownedRun(id: string, token: string): Row {
@@ -120,7 +124,7 @@ export function actOnRun(id: string, token: string, cardId: string | string[] | 
     const next = Array.isArray(cardId) ? takeCardBatch(current, cardId) : typeof cardId === "string" ? takeAction(current, cardId) : takeSpecialAction(current, cardId);
     connection.prepare("UPDATE runs SET state = ?, score = ?, finished_at = ? WHERE id = ?").run(JSON.stringify(next), next.score, next.finishedAt, id);
     const visible = visibleRun(next);
-    connection.prepare("INSERT INTO actions(run_id, request_id, response) VALUES (?, ?, ?)").run(id, requestId, JSON.stringify(visible));
+    connection.prepare("INSERT INTO actions(run_id, request_id, response, created_at) VALUES (?, ?, ?, ?)").run(id, requestId, JSON.stringify(visible), new Date().toISOString());
     connection.exec("COMMIT");
     return visible;
   } catch (error) { connection.exec("ROLLBACK"); throw error; }
@@ -152,13 +156,42 @@ export function adminRecords(page = 1, query = ""): AdminData {
   const total = (db().prepare(`SELECT COUNT(*) AS count FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id ${where}`).get(...args) as { count: number }).count;
   const pages = Math.max(1, Math.ceil(total / 30)); page = Math.max(1, Math.min(pages, Math.floor(page)));
   const rows = db().prepare(`SELECT r.*, c.display_name, c.country, c.score_override, COALESCE(c.deleted,0) AS deleted, COALESCE(c.revision,0) AS control_revision FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id ${where} ORDER BY r.created_at DESC, r.id LIMIT 30 OFFSET ?`).all(...args, (page - 1) * 30) as (Row & Control & { control_revision: number })[];
-  const records: AdminRecord[] = rows.map(row => { const state = JSON.parse(row.state) as RunState; const model=state.rulesVersion==="prototype-0.9"&&state.finishedAt?modelStatus(settingsFor(state.history)):null;return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country, score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted, finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion, revision: row.control_revision,elapsedMs:state.elapsedMs,...(model?.status==="complete"?{temperatureC:model.temperatureC}:{}) }; });
+  const records: AdminRecord[] = rows.map(row => { const state = JSON.parse(row.state) as RunState; const model=modelRules(state.rulesVersion)&&state.finishedAt?modelStatus(settingsFor(state.history)):null;return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country, score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted, finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion, revision: row.control_revision,elapsedMs:state.elapsedMs,...(model?.status==="complete"?{temperatureC:model.temperatureC}:{}) }; });
   return { records, total, page, pages, stats: stats(), entries: leaderboard(true) };
 }
 export function adminRun(id: string) {
   const row = db().prepare("SELECT state FROM runs WHERE id = ?").get(id) as { state: string } | undefined;
   if (!row) throw new GameError("Game not found.", 404);
-  const state=JSON.parse(row.state) as RunState;return {...publicRun(state),...(state.rulesVersion==="prototype-0.9"&&state.finishedAt?{modelEvaluation:modelStatus(settingsFor(state.history))}:{})};
+  const state=JSON.parse(row.state) as RunState;return {...publicRun(state),...(modelRules(state.rulesVersion)&&state.finishedAt?{modelEvaluation:modelStatus(settingsFor(state.history))}:{})};
+}
+export function adminActivity(id: string): AdminActivity {
+  const run = adminRun(id);
+  const group = db().prepare("SELECT group_hash FROM run_attempts WHERE run_id=? LIMIT 1").get(id) as {group_hash:string}|undefined;
+  const used = group ? (db().prepare("SELECT used FROM browser_passes WHERE group_hash=?").get(group.group_hash) as {used:number}).used : null;
+  const related = group ? db().prepare("SELECT r.id,r.state FROM runs r JOIN run_attempts a ON a.run_id=r.id WHERE a.group_hash=? ORDER BY r.created_at DESC").all(group.group_hash) as {id:string;state:string}[] : [];
+  const events = (db().prepare("SELECT request_id,response,created_at FROM actions WHERE run_id=? ORDER BY rowid").all(id) as {request_id:string;response:string;created_at:string|null}[]).map(row => {
+    const response=JSON.parse(row.response) as PublicRun;
+    return {id:row.request_id,kind:"action",at:row.created_at,summary:response.lastActions?.map(action=>action.title).join(" · ") || `Round ${response.round+1}`};
+  });
+  const audit=(db().prepare("SELECT id,action,changes,created_at FROM admin_audit WHERE run_id=? ORDER BY created_at DESC").all(id) as {id:string;action:string;changes:string;created_at:string}[]).map(row=>({id:row.id,action:row.action,createdAt:row.created_at,changes:JSON.parse(row.changes)}));
+  return {attempts:used===null?null:{used,remaining:Math.max(0,PLAY_LIMIT-used),limit:PLAY_LIMIT},games:related.map(row=>{const state=JSON.parse(row.state) as RunState;return {id:row.id,nickname:state.nickname,startedAt:state.startedAt,finishedAt:state.finishedAt};}),events:[{id:"start",kind:"start",at:run.startedAt,summary:"Game started"},...events],audit};
+}
+export function resetPlayerAttempts(id:string) {
+  const connection=db();connection.exec("BEGIN IMMEDIATE");
+  try {
+    const row=connection.prepare("SELECT group_hash FROM run_attempts WHERE run_id=? LIMIT 1").get(id) as {group_hash:string}|undefined;
+    if(!row)throw new GameError("No browser allowance is linked to this game.",404);
+    const before=(connection.prepare("SELECT used FROM browser_passes WHERE group_hash=?").get(row.group_hash) as {used:number}).used;
+    connection.prepare("UPDATE browser_passes SET used=0 WHERE group_hash=?").run(row.group_hash);
+    connection.prepare("INSERT INTO admin_audit VALUES (?,?,?,?,?)").run(randomUUID(),id,"reset-player-plays",JSON.stringify({usedBefore:before,usedAfter:0}),new Date().toISOString());
+    connection.exec("COMMIT");return {used:0,remaining:PLAY_LIMIT,limit:PLAY_LIMIT};
+  } catch(error){connection.exec("ROLLBACK");throw error;}
+}
+/** Persisted fixed windows shared by all API workers; keys are hashed, never raw IPs. */
+export function rateLimit(key:string,maximum=30,windowMs=60000) {
+  const now=Date.now(),connection=db();
+  const row=connection.prepare("INSERT INTO rate_limits VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN until_ms<=? THEN 1 ELSE count+1 END, until_ms=CASE WHEN until_ms<=? THEN excluded.until_ms ELSE until_ms END RETURNING count").get(hash(key),1,now+windowMs,now,now) as {count:number};
+  if(row.count>maximum)throw new GameError("Too many requests. Please wait and try again.",429);
 }
 export function editRecord(id: string, expectedRevision: number, update: { nickname?: string; country?: string; score?: number | null; hidden?: boolean; deleted?: boolean }) {
   const connection = db(); connection.exec("BEGIN IMMEDIATE");
@@ -168,7 +201,7 @@ export function editRecord(id: string, expectedRevision: number, update: { nickn
     const previous = controls(id);
     if ((previous?.revision ?? 0) !== expectedRevision) throw new GameError("Record changed. Refresh before editing.", 409);
     const state = JSON.parse(row.state) as RunState;
-    if(state.rulesVersion==="prototype-0.9"&&update.score!==undefined)throw new GameError("Model temperatures cannot be edited as game points.");
+    if(modelRules(state.rulesVersion)&&update.score!==undefined)throw new GameError("Model temperatures cannot be edited as game points.");
     if (update.score !== undefined && (!state.finishedAt || update.score !== null && (!Number.isInteger(update.score) || update.score < 0 || update.score > 1000))) throw new GameError("Only completed games accept a score correction from 0 to 1000.");
     const next = { display_name: update.nickname ?? previous?.display_name ?? null, country: update.country ?? previous?.country ?? null, score_override: update.score === undefined ? previous?.score_override ?? null : update.score, deleted: update.deleted === undefined ? previous?.deleted ?? 0 : Number(update.deleted), revision: expectedRevision + 1 };
     connection.prepare("INSERT INTO run_controls VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(run_id) DO UPDATE SET display_name=excluded.display_name, country=excluded.country, score_override=excluded.score_override, deleted=excluded.deleted, revision=excluded.revision").run(id, next.display_name, next.country, next.score_override, next.deleted, next.revision);
@@ -178,7 +211,7 @@ export function editRecord(id: string, expectedRevision: number, update: { nickn
   } catch (error) { connection.exec("ROLLBACK"); throw error; }
 }
 
-export function modelSettings(id:string,token:string){const state=JSON.parse(ownedRun(id,token).state) as RunState;if(state.rulesVersion!=="prototype-0.9"||!state.finishedAt)throw new GameError("Finish a new game before evaluating its scenario.",409);return settingsFor(state.history);}
+export function modelSettings(id:string,token:string){const state=JSON.parse(ownedRun(id,token).state) as RunState;if(!modelRules(state.rulesVersion)||!state.finishedAt)throw new GameError("Finish a new game before evaluating its scenario.",409);return settingsFor(state.history);}
 type EvaluationRow={status:"queued"|"running"|"failed"|"complete";result:string|null;error:string|null;updated_at:string};
 export function modelStatus(settings:Record<string,number>):NonNullable<RunState["modelEvaluation"]>{
  const row=db().prepare("SELECT * FROM model_evaluations WHERE scenario_key=?").get(scenarioKey(settings)) as EvaluationRow|undefined;
@@ -191,3 +224,4 @@ export function saveModelStatus(settings:Record<string,number>,status:"queued"|"
  if(status==="complete"&&!validateModelResult(result,settings))throw new GameError("Invalid model readback.");
  db().prepare("INSERT INTO model_evaluations VALUES (?,?,?,?,?) ON CONFLICT(scenario_key) DO UPDATE SET status=excluded.status,result=excluded.result,error=excluded.error,updated_at=excluded.updated_at").run(scenarioKey(settings),status,result?JSON.stringify(result):null,error??null,new Date().toISOString());
 }
+import { modelRules } from "@/game/model-rules";

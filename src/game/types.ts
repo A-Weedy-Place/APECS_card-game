@@ -58,3 +58,9 @@ export type LeaderboardEntry = { id: string; nickname: string; country: string; 
 export type AttemptStatus = { used: number; remaining: number; limit: number };
 export type AdminRecord = { id: string; nickname: string; country: string; score: number | null; originalScore: number | null; hidden: boolean; deleted: boolean; finishedAt: string | null; startedAt: string; round: number; rulesVersion: string; revision: number;temperatureC?:number;elapsedMs?:number };
 export type AdminData = { entries: LeaderboardEntry[]; records: AdminRecord[]; total: number; page: number; pages: number; stats: { runs: number; completed: number; hidden: number; deleted: number } };
+export type AdminActivity = {
+  attempts: AttemptStatus | null;
+  games: { id: string; nickname: string; startedAt: string; finishedAt: string | null }[];
+  events: { id: string; kind: string; at: string | null; summary: string }[];
+  audit: { id: string; action: string; createdAt: string; changes: unknown }[];
+};

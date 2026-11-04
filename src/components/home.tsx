@@ -30,8 +30,12 @@ export function Home({ countries }: { countries: { code: string; name: string }[
     } catch (err) { setError(err instanceof Error ? err.message : "Try again."); setBusy(false); }
   }
   return <div className="game-lobby"><WorldBackground/><main id="main-content" className="join-stage">
+    <header className="lobby-title">
+      <h1>APECS</h1>
+      <p className="lobby-cop">COP31</p>
+      <p className="lobby-pavilion">Cryosphere Pavilion</p>
+    </header>
     <form onSubmit={start} className="join-box" aria-label="Enter the game">
-      <div className="lobby-title"><h1>COP31</h1><p>Cryosphere Pavilion</p><span>APECS</span></div>
       <label htmlFor="nickname">Name</label>
       <input id="nickname" name="nickname" minLength={2} maxLength={24} required placeholder="Your name" autoComplete="off" aria-describedby="join-disclosure"/>
       <label htmlFor="country">Country</label>
@@ -40,5 +44,6 @@ export function Home({ countries }: { countries: { code: string; name: string }[
       {attempts?.remaining === 0 ? <><p className="plays-used">Both plays used</p><Link className="game-button gold" href="/leaderboard">Leaderboard</Link><Link className="game-button quiet" href="/play">Last game & history</Link></> : <button className="game-button gold" type="submit" disabled={busy || !attempts} aria-describedby="join-disclosure">{busy || !attempts ? <LoaderCircle size={20} className="spin" aria-label="Loading"/> : "Play"}</button>}
       <small id="join-disclosure">An alias is fine. Name, flag, temperature & time appear on the board.</small>
     </form>
+    <Link className="lobby-photo-credit" href="/credits#everest-photo">Everest & Nuptse · Pavel Novak</Link>
   </main></div>;
 }

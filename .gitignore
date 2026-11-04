@@ -20,6 +20,8 @@ screenshots/
 *.p12
 *.pfx
 .vercel/
+supabase/.temp/
+supabase/.branches/
 .DS_Store
 Thumbs.db
 npm-debug.log*

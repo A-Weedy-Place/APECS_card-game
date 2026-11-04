@@ -3,7 +3,7 @@
 const config = {
   poweredByHeader: false,
   devIndicators: false,
-  serverExternalPackages: ["node:sqlite"],
+  serverExternalPackages: ["node:sqlite", "pg"],
   async headers() {
     return [{ source: "/(.*)", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },

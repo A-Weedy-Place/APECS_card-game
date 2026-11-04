@@ -1,5 +1,9 @@
 # Local application architecture
 
+## Hosted deployment — 2026-11-02
+
+See [hosting/admin](14-hosting-admin.md). Async `persistence.ts` selects local SQLite or pooled Postgres. Vercel requires DATABASE_URL and refuses local-file fallback. Hosted records are in a private RLS schema with a restricted server role, per-run/per-browser row locks, atomic receipts and shared request limits. Admin password-hash login issues expiring signed sessions; original game state and audited corrections remain separate. Hosted model evaluation stays unavailable pending a supported provider. The original SQLite interfaces and archived engines remain regression-tested.
+
 ## Current 0.9 model workflow
 
 See [0.9 routing](13-v9-model-game.md). New `GET/POST /api/runs/:id/model` is owner-only and requires a finished 0.9 game. Settings are derived from accepted history; clients never supply temperature or scenario values. `model-jobs.ts` serialises the experimental local browser provider; `model-result.ts` validates its complete readback. SQLite `model_evaluations` caches the version/default-profile + 19-input scenario hash, status, result, error and update time. Uncached work is slow and not event-scale hosting. Run time stops at the final round, before evaluation. Public standings include only evaluated current-version records, ordered by displayed temperature then time. Pending games remain visible in admin; model temperatures cannot use old point-score overrides. Existing stores are migrated additively; archived engines and records are not reinterpreted.

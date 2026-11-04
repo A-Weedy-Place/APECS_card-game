@@ -10,6 +10,13 @@ export function CountryPicker({ countries, value, onChange }: { countries: { cod
   const [query, setQuery] = useState(""), [open, setOpen] = useState(false), [placement, setPlacement] = useState({ left: 0, top: 0, width: 300, maxHeight: 280 });
   const name = countries.find(c => c.code === value)?.name;
   const choices = countries.filter(country => `${country.name} ${country.code}`.toLowerCase().includes(query.toLowerCase()));
+  function position(){
+    if(!trigger.current)return;
+    const rect=trigger.current.getBoundingClientRect(),viewport=window.visualViewport;
+    const top=viewport?.offsetTop??0,bottom=top+(viewport?.height??window.innerHeight),below=bottom-rect.bottom-18,above=rect.top-top-18;
+    const down=below>=Math.min(230,above),height=Math.max(80,Math.min(300,down?below:above));
+    setPlacement({left:Math.max(12,Math.min(rect.left,window.innerWidth-rect.width-12)),top:down?rect.bottom+6:Math.max(top+12,rect.top-height-6),width:Math.min(rect.width,window.innerWidth-24),maxHeight:height});
+  }
   const hide = () => { if (typeof popup.current?.hidePopover === "function") popup.current.hidePopover(); setOpen(false); };
   useEffect(() => {
     if (!open) return;
@@ -17,11 +24,11 @@ export function CountryPicker({ countries, value, onChange }: { countries: { cod
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); hide(); trigger.current?.focus(); } };
     const blur = (event: FocusEvent) => { if (!popup.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) hide(); };
     document.addEventListener("pointerdown", close); document.addEventListener("keydown", escape); document.addEventListener("focusin", blur);
-    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape); document.removeEventListener("focusin", blur); };
+    window.addEventListener("resize",position);window.visualViewport?.addEventListener("resize",position);window.visualViewport?.addEventListener("scroll",position);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape); document.removeEventListener("focusin", blur);window.removeEventListener("resize",position);window.visualViewport?.removeEventListener("resize",position);window.visualViewport?.removeEventListener("scroll",position); };
   }, [open]);
   function show() {
-    const rect = trigger.current!.getBoundingClientRect(), height = Math.min(280, window.innerHeight - 24);
-    setPlacement({ left: Math.max(12, Math.min(rect.left, window.innerWidth - rect.width - 12)), top: rect.bottom + height + 8 <= window.innerHeight ? rect.bottom + 6 : Math.max(12, rect.top - height - 6), width: Math.min(rect.width, window.innerWidth - 24), maxHeight: height });
+    position();
     setQuery(""); setOpen(true); if (typeof popup.current?.showPopover === "function") popup.current.showPopover(); requestAnimationFrame(() => search.current?.focus());
   }
   return <>

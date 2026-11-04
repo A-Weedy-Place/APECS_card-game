@@ -1,0 +1,12 @@
+import {writeFile} from 'node:fs/promises';
+import sharp from 'sharp';
+const id='PIA24162',response=await fetch(`https://images-api.nasa.gov/search?nasa_id=${id}`);
+if(!response.ok)throw new Error('NASA metadata unavailable');
+const item=(await response.json()).collection.items[0].data[0];
+const original=`https://images-assets.nasa.gov/image/${id}/${id}~orig.jpg`,image=await fetch(original);
+if(!image.ok)throw new Error('NASA photograph unavailable');
+const bytes=Buffer.from(await image.arrayBuffer()),metadata=await sharp(bytes).metadata();
+if(metadata.width<3000)throw new Error('Background original is too small.');
+await sharp(bytes).webp({quality:91,effort:5}).toFile('public/art/photos/cryosphere-background.webp');
+await writeFile('public/art/photos/background-credit.json',JSON.stringify({title:item.title,credit:item.photographer??item.secondary_creator??'NASA/JPL-Caltech',source:`https://images.nasa.gov/details/${id}`,original,terms:'https://www.nasa.gov/nasa-brand-center/images-and-media/',width:metadata.width,height:metadata.height,modification:'Converted to high-quality WebP; responsive CSS crop. No endorsement implied.'},null,2)+'\n');
+console.log(`Background ${metadata.width}x${metadata.height}: ${item.title}`);

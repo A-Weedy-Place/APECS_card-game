@@ -1,6 +1,6 @@
 import { GameError } from "@/game/engine";
-import { bearer, failure, jsonBody, limit, respond } from "@/server/http";
-import { actOnRun } from "@/server/store";
+import { bearer, failure, jsonBody, respond } from "@/server/http";
+import { actOnRun, rateLimit } from "@/server/persistence";
 import type { SpecialCommand } from "@/game/types";
 export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -12,7 +12,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const command = body.special as Record<string, unknown> | undefined;
     const special = body.cardId === undefined && body.cardIds === undefined && command && typeof command === "object" && !Array.isArray(command) && (command.kind === "begin-special" ? ["credits", "economy", "support", "awareness", "justice"].includes(command.reward as string) : command.kind === "finish-special" && Array.isArray(command.frames) && command.frames.length <= 150 && command.frames.every(Number.isInteger) && Number.isInteger(command.endFrame) && (command.moves === undefined || Array.isArray(command.moves) && command.moves.length <= 180));
     if ((!single && !batch && !special) || !Number.isInteger(body.revision) || (body.revision as number) < 0 || typeof body.requestId !== "string" || !/^[a-zA-Z0-9-]{8,80}$/.test(body.requestId)) throw new GameError("Invalid game request.");
-    limit(`action:${id}`, 90);
-    return respond(actOnRun(id, bearer(request), single ? body.cardId as string : batch ? body.cardIds as string[] : command as SpecialCommand, body.revision as number, body.requestId));
+    await rateLimit(`action:${id}`, 90);
+    return respond(await actOnRun(id, bearer(request), single ? body.cardId as string : batch ? body.cardIds as string[] : command as SpecialCommand, body.revision as number, body.requestId));
   } catch (error) { return failure(error); }
 }

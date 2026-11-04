@@ -1,5 +1,53 @@
 # Implementation progress
 
+## 2026-11-04 — GitHub and Vercel delivery workflow
+
+The user requested that game changes go to GitHub main and Vercel production by default, with focused checks and a live URL for handoff. The current release brings the already verified hosted storage, model worker, 0.10 experience, mountain lobby and first-play tutorial into the GitHub source history. GitHub main and the existing Vercel production project were checked before release. The opening-screen and tutorial implementation already passed the checks recorded below. Production release verification covers Vercel readiness and read-only checks of the public pages and mountain asset.
+
+## 2026-11-04 — Opening screen and first-play spotlight
+
+Added a three-step modal spotlight for budget and stats, card selection, and round controls. It dims the rest of the live board, supports keyboard dismissal, remembers completion or skip in browser storage, and can be reopened from How to play. Tutorial time is included in server-measured play time. The opening screen puts the larger APECS heading above COP31 and Cryosphere Pavilion, with stronger contrast and shadows over Pavel Novak's attributed 2600px Everest and Nuptse photo.
+
+Verified 109 unit tests, typecheck, production build, and all 10 isolated Edge scenarios. The first narrow-screen check caught overlap with the card hand at 320×568. Compact coach marks and a narrower landscape panel resolved it. Final focused lobby, tutorial and phone-hand checks passed 3/3 after the landscape tool spacing fix. Reviewed desktop, phone and landscape captures. Local preview routes and the photo returned HTTP 200. Physical iPhone/Safari and real player comprehension remain untested. Changes are local.
+
+## 2026-11-03 — 0.10 experience and laptop-worker checkpoint
+
+### Verified implementation and real hosted model path
+
+Final **dpl_CrnVXhxKgouiGraLibBpVfmBkHdw** is READY at the public game URL. Post-publish real browser verification passed complete19-setting En-ROADS iframe readback, displayed3.3°C, correct width/orientation reload, unchanged server play time and leaderboard inclusion. Screenshot review waited for the original tool's welcome/fade rather than capturing an in-transition white overlay. Genuine automatic cold3.2°C/3.1°C jobs and cached3.3°C remain validated in hosted cache; generated test games removed by verified identity. Local four routes200; laptop worker running/no logged errors.109 unit,9 full browser plus2 final focused cases, Postgres concurrency/role/lease suite, typecheck/build and whitespace checks passed. No automatic Git commit/push. User must start a new0.10 game for changed arcade rewards and keep the laptop awake/online for uncached calculations. SDK/event throughput and physical iOS/human playchecks remain pending.
+
+Final width/orientation refresh passed both focused entry/arcade/results browser cases (34.9s), with no height-only keyboard reload. Final typecheck/build and diff whitespace checks passed. Full9-test suite had already passed after the admin race fix. Final deployment underway; worker credentials/temp provisioning SQL are excluded/removed, no Codex port or model code was exposed. No commits or automatic Git publishing.
+
+109/109 unit tests, standalone typecheck/build, real Postgres integration and9/9 isolated Edge browser tests passed. New checks cover separate entry identity, country popup bounds, full-width centred arcade across phone/landscape/desktop, coin-only server validation, preserved0.9 physics/rewards, auto-calculation and original scenario window. Admin search race found during update was fixed with pending-state input disabling and a modal-close wait.
+
+Live0.10 games automatically queued genuine complete model packages; laptop worker completed **+3.2°C/+3.1°C**. Cached baseline full UI/model/standing check passed: **+3.3°C**, all19 iframe controls matched, server play time unchanged. Test helper corrections handled a missing browser base URL, optional displayed plus sign and legitimate cached results requiring no POST; no fabricated outputs entered production. Generated records cleaned by verified identity, real scenario cache retained. Initial live graph screenshot exposed the official tool's load-time scaling on rotation; added width-only frame refresh. Final resize check/republication pending. Supabase security/performance advisors report no warnings. Worker and local preview remain running.
+
+Verified genuine hosted queue→restricted laptop worker→public En-ROADS26.10.0→validated cache completion: baseline **+3.3°C**. Queue stores only19-input scenario packages. Real local Postgres suite passed duplicate claims, bad/stale lease rejection, invalid model readback refusal, cache reuse and restricted worker denial of player reads/edits;30-player policy transactions still pass. All10 private tables have RLS in the migration. Initial unit suite had only an outdated new-version assertion (106/107); updated that expected new starts to0.10, retaining saved0.9 tests. New coin-only/replay and browser layout/auto-result coverage added; final run underway.
+
+User requested crisper photography, identity outside entry box, corrected country popup, centred/full-screen arcade, coins-only rewards, increasing difficulty, automatic temperature evaluation and genuine En-ROADS results/graphs. Added0.10 dispatch preserving saved0.9 and earlier, coin-only server validation and a versioned faster arcade variant. Added3792px NASA background, external heading/form layout, visual-viewport popup positioning and immersive arcade CSS. Automatic result request/poll and official scenario iframe retain original En-ROADS branding/attribution; no model source copied. Implementing durable leased private jobs and an outbound-only laptop worker rather than exposing Codex or incoming ports.
+
+Initial typecheck passed after explicitly setting NODE_ENV in the restricted browser-child environment. Existing regression run is underway; new rules/queue/browser checks, migration, actual model readback and deployment remain pending. No new paid service, Git commit, contact or attendee-data mutation.
+
+## 2026-11-02 — Hosting/admin implementation checkpoint
+
+### Production deployed and live load verified
+
+Final deployment `dpl_5LRxQ9UiNN13K44hjGM6FhH16Qa9` is READY at the same public URL. Final typecheck/build passed; actual browser login and corrected empty/logout styles verified. All four localhost routes returned200 under network-enabled execution. Synchronised root Node22 lockfile metadata and allowed hashed admin credentials in the retained LAN startup guard. Those final operational/documentation-only changes do not alter hosted gameplay. No automatic Git commit/push.
+
+Published https://apecs-card-game.vercel.app (initial deployment `dpl_DW94z5whsgMFc1AqzRTQi7qasXpE`, READY/fra1). Public home/admin/leaderboard API returned200 without Vercel login. Actual production30-player/300-action run completed with **zero errors**, median332ms/p95 784ms/max951ms. This excludes model jobs. Private admin login, another browser's play reset, action/audit history and duplicate-action idempotency passed; unauthenticated admin returned401. Test helper verifies generated identities before cleanup. Hosted readback after cleanup:0 games,0 actions,0 audit entries,0 model results. No attendee records were uploaded or changed.
+
+Verified real390px production browser country flag and password login, no page errors, screenshots reviewed. Public JS contained none of the exact deployment/admin/database secrets. All9 private tables have RLS; security/performance advisors report no warnings. Preview3000 is running. Final screenshot review identified low contrast in admin empty-state/logout; corrected CSS before final republish. Source changes remain uncommitted, per AGENTS.md; GitHub automatic deployments are not connected to stale main. No En-ROADS API/SDK was acquired or fabricated; hosted temperatures stay pending until provider integration.
+
+### Account setup and verification completed
+
+User approved a new free **APECS COP31** organisation in their separately authenticated Supabase account. Created organisation `nkxccagazrewcxdfyraw` and Frankfurt project `shdiharlumvykiaeaddt` (`apecs-card-game`). No neodym resource was changed. Vercel logged in as `asharmehmood99-4970` (Hobby), created/linked `apecs-card-game`. Reviewed migration applied, restricted runtime role verified, production secrets set through stdin and local requested password stored only as a salted hash. Supabase pooler TLS uses its official CA with hostname verification. Both hosted security/performance advisors report no warnings.
+
+Verified107/107 unit tests, typecheck/production build,7/7 isolated phone/admin/arcade browser tests, and actual local Postgres integration. Latest direct-database30-player/300-action p95 261ms/max305ms; local SQLite HTTP40-player p95 1694ms/max1986ms. Tests cover atomic start allowance/idempotency, revision races, ownership, audited resets, preserved originals, rejected temperature correction, RLS and denied runtime DDL/deletion. Browser failure was an outdated expected error word after clearer model-unavailable copy; corrected and all passed. Preview restarted and200 confirmed. Hosted deployment and live concurrency remain pending; En-ROADS provider unavailable on Vercel and unevaluated results remain pending. No automatic commit/push or Git-triggered deployment connection made.
+
+Resumed requested Vercel deployment. Installed Vercel65.9.0 and Supabase3.0.0 CLIs plus pinned pg8.23.1/types. Vercel CLI login is awaiting user authorisation. User chose a different Supabase account, so no connected neodym resource was changed; separate CLI login awaits verification. Implemented async storage routing, private Postgres schema/restricted runtime role, per-browser/per-run transactional locking, shared throttling, password-hash login/signed admin sessions, timestamped new actions, per-player play resets and expanded activity/audit/export UI. Local SQLite and saved engines remain intact. Vercel refuses SQLite and the local model worker; unevaluated temperatures remain pending and unranked. No migration/deployment/paid resource/data transfer has occurred.
+
+Verified initial104/104 regression tests and typecheck. Docker was initially stopped; started the installed service for a separate local Postgres test. New behavioural/browser/Postgres tests and final build remain pending. Local preview was found stopped and will be restarted for handoff. See14-hosting-admin.md for architecture and account boundaries.
+
 ## 2026-11-01 — GitHub source handoff preparation
 
 ### Upload verified

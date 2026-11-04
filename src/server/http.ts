@@ -1,12 +1,10 @@
-import { timingSafeEqual } from "node:crypto";
 import { GameError } from "@/game/engine";
+import { validAdminToken } from "./admin-auth";
 
 export function bearer(request: Request) { return request.headers.get("authorization")?.replace(/^Bearer /, "") ?? ""; }
 export function requireAdmin(request: Request) {
-  const token = process.env.ADMIN_TOKEN ?? (process.env.NODE_ENV === "development" ? "polar-local" : "");
-  if (!token) throw new GameError("Set ADMIN_TOKEN to enable the organiser dashboard.", 503);
-  const supplied = bearer(request);
-  if (supplied.length > 256 || Buffer.byteLength(supplied) !== Buffer.byteLength(token) || !timingSafeEqual(Buffer.from(token), Buffer.from(supplied))) throw new GameError("Incorrect organiser key.", 401);
+  if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_TOKEN && process.env.NODE_ENV !== "development") throw new GameError("Admin access is not configured.", 503);
+  if (!validAdminToken(bearer(request))) throw new GameError("Incorrect organiser key. Please log in again.", 401);
 }
 export async function jsonBody(request: Request): Promise<Record<string, unknown>> {
   if (!request.headers.get("content-type")?.includes("application/json")) throw new GameError("Send JSON content.", 415);

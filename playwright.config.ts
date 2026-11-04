@@ -7,6 +7,6 @@ export default defineConfig({
   webServer: {
     command: "npm run start -- --port 3001", url: "http://127.0.0.1:3001", timeout: 120000,
     reuseExistingServer: process.env.PLAYWRIGHT_EXTERNAL_SERVER === "1",
-    env: { DATABASE_PATH: `./data/e2e-${Date.now()}.sqlite`, ADMIN_TOKEN: "playwright-local-key", NEXT_TELEMETRY_DISABLED: "1", ENROADS_BROWSER_ENABLED:"0" },
+    env: { DATABASE_PATH: `./data/e2e-${Date.now()}.sqlite`, DATABASE_URL:"", ADMIN_TOKEN: "playwright-local-key", ADMIN_PASSWORD_HASH:"", ADMIN_SESSION_SECRET:"", NEXT_TELEMETRY_DISABLED: "1", ENROADS_BROWSER_ENABLED:"0" },
   },
 });

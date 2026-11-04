@@ -1,9 +1,11 @@
 # Cryosphere Futures context index
 
-New 0.9: 67 cards/all 19 En-ROADS main controls, progressive upgrades, three-resource HUD, upright phone hand and temperature/time standings. Ten 2026 rounds retain arcade rounds 4/7. User-requested experimental **local public-UI model bridge**, not an SDK or event-ready integration. Saved 0.8/earlier preserved. Start 8/cap 20 coins; two browser starts (bypassable soft limit); separate admin/display. Read current 0.9 routing first. Verified versus pending checks are in Progress.
+New0.10:67 cards/all19 En-ROADS controls, three-resource HUD, upright phone hand, coin-only accelerating arcade4/7 and automatic temperature/time results. Centred entry with external pavilion identity and high-resolution NASA background. Vercel/Supabase hosts the game; an experimental outbound-only laptop worker evaluates complete scenarios in the public En-ROADS UI. Genuine simulator graphs appear in a full-screen results window, with original branding intact. Not an SDK or event-ready model service. Saved0.9/earlier preserved. Start8/cap20 coins; two browser starts (bypassable soft limit); separate admin/display. Read15-v10-experience-worker.md first. Verified versus pending checks are in Progress.
 
 | Need | Read | Main code |
 | --- | --- | --- |
+| Current0.10 layout, coin-only arcade, auto results and laptop worker | [0.10 experience](15-v10-experience-worker.md) | `v10.ts`, `experience-v10.css`, `model-queue.ts`, `scripts/model-worker.ts` |
+| Opening screen, Everest photo and first-play spotlight tutorial | [0.10 experience](15-v10-experience-worker.md) | `home.tsx`, `game-tutorial.tsx`, `experience-v10.css` |
 | User intent and non-negotiable requirements | [Brief](00-brief.md) | — |
 | Visual style and accessibility | [Design](01-design.md) | `src/app/globals.css`, `src/components/` |
 | Rounds, cards, income, approval, scoring | [Game rules](02-game.md) | `src/game/` |
@@ -12,6 +14,7 @@ New 0.9: 67 cards/all 19 En-ROADS main controls, progressive upgrades, three-res
 | Current Flappy/shooter courses, graphics, controls and practice | [0.8 arcade](12-v8-arcade.md) | `arcade.ts`, `v8.ts`, `arcade-game.tsx`, `arcade-art.ts` |
 | Preserved phone experience, special rounds and rare cards | [0.6 experience](10-v6-experience.md) | `game-v6.tsx`, `special-round.tsx`, `v6.ts`, `challenges.ts` |
 | Backend, database, API and concurrency | [Architecture](03-architecture.md) | `src/server/`, `src/app/api/` |
+| Vercel deployment, hosted records and expanded admin | [Hosting/admin](14-hosting-admin.md) | `persistence.ts`, `postgres-store.ts`, `admin-auth.ts` |
 | Scientific claims and simulator integration | [Models and assumptions](04-models.md) | `src/game/model.ts` |
 | Running, testing, network and moderation | [Operations](05-operations.md) | `package.json`, `tests/` |
 | What changed and what was verified | [Progress](06-progress.md) | — |

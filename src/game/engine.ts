@@ -9,6 +9,7 @@ import { v7Rules, v7Action, v7Batch, v7Public, v7Special, v7Offers, v7Approval, 
 import { v8Rules, v8Create, v8Public, v8Special } from "./v8";
 import { v9Rules,v9Create,v9Public,v9Action,v9Batch,v9Special,v9Income,v9Approval,v9Effects,v9Offers } from "./v9";
 import { POLICY_BY_ID } from "./policy-catalogue";
+import { v10Create, v10Special } from "./v10";
 import { GameError } from "./errors";
 import { v4Rules, v4Approval, v4Cost, v4Income, v4Transition, v4Mandate, v4Refund, v4Effects, v4Offers, v4Create, v4Score, v4Action, v4Public } from "./v4";
 import { v5Rules, v5Approval, v5Cost, v5Income, v5Transition, v5Mandate, v5Refund, v5Effects, v5Offers, v5Create, v5Score, v5Action, v5Public, v5Batch } from "./v5";
@@ -122,7 +123,7 @@ function diversifyOffers(ranked: Card[], chosen: Card[]) {
 }
 
 export function createRun(id: string, nickname: string, country: string, seed: number): RunState {
-  return v9Create(id, nickname, country, seed);
+  return v10Create(id, nickname, country, seed);
 }
 
 function applyEffects(resources: Resources, effects: Effects) {
@@ -223,7 +224,7 @@ export function takeCardBatch(current: RunState, cardIds: string[]): RunState {
   if (v6Rules(current)) return v6Batch(current, cardIds);
   return v5Batch(current, cardIds);
 }
-export function takeSpecialAction(current: RunState, command: SpecialCommand): RunState { return v9Rules(current)?v9Special(current,command):v8Rules(current) ? v8Special(current, command) : v7Rules(current) ? v7Special(current, command) : v6Special(current, command); }
+export function takeSpecialAction(current: RunState, command: SpecialCommand): RunState { return current.rulesVersion==="prototype-0.10"?v10Special(current,command):v9Rules(current)?v9Special(current,command):v8Rules(current) ? v8Special(current, command) : v7Rules(current) ? v7Special(current, command) : v6Special(current, command); }
 
 export function publicRun(state: RunState): PublicRun {
   return redactPublicRun(publicRunWithPrivateRolls(state));

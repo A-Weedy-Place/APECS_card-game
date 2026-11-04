@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, Check, Clock3, History, LoaderCircle, Shuffle, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, Check, CircleHelp, Clock3, History, LoaderCircle, Shuffle, Volume2, VolumeX, X } from "lucide-react";
 import { api, requestId, SESSION_KEY, type Session } from "@/lib/client";
 import { playSound, setSoundEnabled, soundEnabled } from "@/lib/sound";
 import { CONTROLS, controlFor, defaultSettings, guideFor, POLICY_BY_ID, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
@@ -12,6 +12,8 @@ import { CardArt, CardPhotoCaption } from "./card-art";
 import { ClimateCoin } from "./climate-coin";
 import { ArcadeRound } from "./arcade-round";
 import { Flag } from "./country-picker";
+import { ScenarioResults } from "./scenario-results";
+import { GameTutorial, TUTORIAL_SEEN_KEY } from "./game-tutorial";
 type QuotedPolicy=OfferedCard & PolicyCardV9;
 const resourceNames={economy:"Revenue growth",support:"Politics",awareness:"Public engagement"};
 const colours:Record<string,string>={Energy:"#f5be5b",Demand:"#78c5fa",Growth:"#bba0f7",Removal:"#73d0b1","Land & gases":"#a5d66c",politics:"#ca9dff",economics:"#eabc5c",awareness:"#5ed5cf"};
@@ -27,7 +29,18 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  const[run,setRun]=useState(initialRun),[chosen,setChosen]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const[inspect,setInspect]=useState<QuotedPolicy|null>(null),[panel,setPanel]=useState<"Library"|"History"|null>(null),[filter,setFilter]=useState("all"),[stat,setStat]=useState<string|null>(null),[sound,setSound]=useState(true),[notice,setNotice]=useState("");
  const acting=useRef(false),pending=useRef<{key:string;body:Record<string,unknown>}|null>(null);
+ const board = useRef<HTMLElement>(null);
+ const [tutorial, setTutorial] = useState(false);
  useEffect(()=>{setSound(soundEnabled());},[]);
+ useEffect(() => {
+  if (initialRun.round !== 0 || initialRun.finishedAt) return;
+  try { if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) setTutorial(true); }
+  catch { setTutorial(true); }
+ }, [initialRun.round, initialRun.finishedAt]);
+ function closeTutorial() {
+  try { localStorage.setItem(TUTORIAL_SEEN_KEY, "1"); } catch { /* Storage may be unavailable. */ }
+  setTutorial(false);
+ }
  const cost=run.offers.filter(c=>chosen.includes(c.id)).reduce((sum,c)=>sum+c.cost,0);
  const headers={"Content-Type":"application/json",Authorization:`Bearer ${session.token}`};
  async function act(value:string|string[]|SpecialCommand){
@@ -45,7 +58,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  }
  const pips=(value:number)=>Math.max(0,Math.min(7,Math.round(value/100*7)));
  const explanations:Record<string,string>={economy:`+${run.nextIncome} coins each round. Revenue funds the game budget; it is separate from En-ROADS economic growth.`,support:`Reference approval ${run.generalApproval}%. Politics has the strongest effect on approval. Difficult policies and negotiation fatigue consume support.`,awareness:"Public engagement adds a smaller approval boost. At 60+ it also reduces political effort. Fair transition and inclusive participation help build support; they do not directly cool the planet."};
- return <div className="v9-experience"><WorldBackground/><main id="main-content" className="v9-board" aria-label="2026 policy planning">
+ return <div className="v9-experience"><WorldBackground/><main ref={board} id="main-content" className={`v9-board ${run.specialRound&&!run.finishedAt?"has-arcade":""}`} aria-label="2026 policy planning">
   <div className="v9-top"><Clock run={run}/><div className="v9-rounds" aria-label={`Round ${Math.min(10,run.round+1)} of 10`}>{Array.from({length:10},(_,i)=><span key={i} className={`${i<run.round?"done":""} ${i===run.round?"current":""} ${[3,6].includes(i)?"special":""}`} aria-current={i===run.round?"step":undefined}>{i+1}</span>)}</div><button className="icon-button" aria-label={sound?"Mute sound":"Enable sound"} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
   {run.finishedAt?<TemperatureResult run={run} session={session} onHistory={()=>setPanel("History")} onUpdate={evaluation=>setRun(current=>({...current,modelEvaluation:evaluation}))}/>:<>
    <div className="v9-hud"><div className="v9-resources">{(["economy","support","awareness"]as const).map(key=><div key={key} className="v9-resource"><button onClick={()=>setStat(stat===key?null:key)} aria-expanded={stat===key}><span>{resourceNames[key]}</span><span className={`v9-pips ${pips(run.resources[key])<3?"low":""}`} aria-label={`${pips(run.resources[key])} of 7`}>{Array.from({length:7},(_,i)=><i key={i} className={i<pips(run.resources[key])?"lit":""}/>)}</span><b>{key==="economy"?`+${run.nextIncome}/round`:key==="support"?`${run.generalApproval}%`:""}</b></button>{stat===key&&<p className="v9-stat-tip">{explanations[key]}</p>}</div>)}</div><div className="v9-wallet" aria-label={`${run.resources.credits} coins`}><ClimateCoin/><strong>{run.resources.credits}</strong></div></div>
@@ -64,18 +77,28 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
    </section>}
    <p className="v9-notice" role="status">{error||notice||""}</p>
   </>}
-  <nav className="v9-tools"><button onClick={()=>setPanel("Library")}><BookOpen size={17}/> Library</button>{!run.finishedAt&&<button onClick={()=>setPanel("History")}><History size={17}/> History</button>}</nav>
+  <nav className="v9-tools"><button onClick={()=>setPanel("Library")}><BookOpen size={17}/> Library</button>{!run.finishedAt&&<button onClick={()=>setPanel("History")}><History size={17}/> History</button>}{!run.finishedAt&&!run.specialRound&&<button onClick={()=>{setStat(null);setTutorial(true);}}><CircleHelp size={17} aria-hidden="true"/> How to play</button>}</nav>
  </main>
+ {tutorial&&!run.finishedAt&&!run.specialRound&&<GameTutorial board={board} onClose={closeTutorial}/>}
  {inspect&&<Sheet title={inspect.title} onClose={()=>setInspect(null)}><div className="v9-inspection" style={tint(inspect)}><CardArt card={{id:inspect.photo,category:inspect.category}}/><p>{inspect.description}</p>{inspect.factor&&<div className="v9-target"><small>{controlFor(inspect.factor).label}</small><span>{settingLabel(inspect.factor,run.policySettings?.[inspect.factor]??controlFor(inspect.factor).baseline)}</span><b>→ {inspect.setting}</b></div>}<Effects card={inspect}/><div className="v9-quote"><b>{inspect.cost} coins</b><b>{inspect.approval}% approval</b></div>{inspect.requires&&<p className="v9-fine">Requires {POLICY_BY_ID.get(inspect.requires)?.title}</p>}{inspect.approval<100&&<p className="v9-fine">Rejected: lose {inspect.cost-(inspect.rejectionRefund??0)} coins and {inspect.rejectionSupport} politics.</p>}<button className="game-button gold" disabled={busy||!run.offers.some(c=>c.id===inspect.id)||!chosen.includes(inspect.id)&&cost+inspect.cost>run.resources.credits} onClick={()=>toggle(inspect)}>{!run.offers.some(c=>c.id===inspect.id)?"Not in this hand":chosen.includes(inspect.id)?"Deselect":"Select"}</button><details><summary>Model & photo sources</summary><p>{inspect.note}</p>{inspect.factor&&<a href={guideFor(inspect.factor)} target="_blank" rel="noreferrer">En-ROADS control guide ↗</a>}<CardPhotoCaption id={inspect.photo}/></details></div></Sheet>}
  {panel&&<Sheet title={panel} onClose={()=>setPanel(null)}>{panel==="Library"?<><label className="v9-filter">Path<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All paths</option><option value="support">Support cards</option>{CONTROLS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></label><div className="v9-library">{(run.library as (QuotedPolicy&{lockedReason:string|null;taken:boolean})[]??[]).filter(c=>filter==="all"||filter==="support"&&!c.factor||c.factor===filter).map(c=><button key={c.id} style={tint(c)} onClick={()=>{setPanel(null);setInspect(c);}} className={`v9-library-card ${c.lockedReason&&!c.taken?"locked":""}`}><CardArt card={{id:c.photo,category:c.category}}/><strong>{c.title}</strong><span>{c.setting}</span><small>{c.taken?"✓ Adopted":c.lockedReason??`${c.cost} coins · Ready`}</small></button>)}</div></>:<><div className="v9-history">{run.history.filter(a=>a.kind!=="round-end").map((a,i)=><div key={i}><small>Round {a.planningRound} · {a.accepted?"Passed":"Rejected"}</small><b>{a.title}</b><span>{POLICY_BY_ID.get(a.cardId)?.setting??"Arcade boost"}</span></div>)}{!run.history.some(a=>a.kind!=="round-end")&&<p>No policies played.</p>}</div><details><summary>Current model settings</summary>{CONTROLS.map(c=><p className="v9-setting-row" key={c.id}><b>{c.label}</b><span>{settingLabel(c.id,(run.policySettings??defaultSettings())[c.id])}</span></p>)}</details></>}</Sheet>}
  </div>;
 }
 function TemperatureResult({run,session,onHistory,onUpdate}:{run:PublicRun;session:Session;onHistory:()=>void;onUpdate:(evaluation:NonNullable<PublicRun["modelEvaluation"]>)=>void}){
- const[attempts,setAttempts]=useState<AttemptStatus|null>(null),[error,setError]=useState("");const evaluation=run.modelEvaluation??{status:"idle"};
- const waiting=evaluation.status==="queued"||evaluation.status==="running",complete=evaluation.status==="complete";
- const resume=useRef(waiting);useEffect(()=>{if(resume.current){resume.current=false;api<NonNullable<PublicRun["modelEvaluation"]>>(`/api/runs/${session.id}/model`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.token}`},body:"{}"}).then(onUpdate).catch(err=>setError((err as Error).message));}},[session.id,session.token,onUpdate]);
+ const[attempts,setAttempts]=useState<AttemptStatus|null>(null),[error,setError]=useState(""),[showScenario,setShowScenario]=useState(false);
+ const evaluation=run.modelEvaluation??{status:"idle"},waiting=evaluation.status==="queued"||evaluation.status==="running",complete=evaluation.status==="complete";
+ const started=useRef(false),update=useRef(onUpdate);update.current=onUpdate;
+ async function calculate(){setError("");try{update.current(await api(`/api/runs/${session.id}/model`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.token}`},body:"{}"}));}catch(err){setError((err as Error).message);}}
+ useEffect(()=>{if(!complete&&!started.current){started.current=true;void calculate();}},[session.id]);
  useEffect(()=>{api<AttemptStatus>("/api/attempts").then(setAttempts).catch(()=>{});},[]);
- useEffect(()=>{if(!waiting)return;let alive=true;const timer=setInterval(()=>{api<NonNullable<PublicRun["modelEvaluation"]>>(`/api/runs/${session.id}/model`,{headers:{Authorization:`Bearer ${session.token}`}}).then(value=>{if(alive)onUpdate(value);}).catch(()=>{});},2500);return()=>{alive=false;clearInterval(timer);};},[waiting,session.id,session.token,onUpdate]);
- async function calculate(){setError("");try{onUpdate(await api(`/api/runs/${session.id}/model`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.token}`},body:"{}"}));}catch(err){setError((err as Error).message);}}
- return <section className="v9-result" aria-label="Your result"><p className="v9-eyebrow">YOUR 2100 SCENARIO</p><h1>{complete?`+${evaluation.temperatureC!.toFixed(1)}°C`:waiting?"Calculating…":"Temperature pending"}</h1><p className="v9-result-player"><Flag code={run.country}/>{run.nickname}<span>{formatTime(run.elapsedMs??0)}</span></p>{!complete&&!waiting&&<button className="game-button gold" onClick={calculate}>{evaluation.status==="failed"?"Retry calculation":"Calculate temperature"}</button>}{waiting&&<p className="v9-fine"><LoaderCircle className="spin" size={16}/> Evaluating the complete scenario. Your play time is stopped.</p>}{(error||evaluation.error)&&<p role="alert" className="error-message">{error||evaluation.error}</p>}<div className="v9-result-actions"><Link className="game-button" href="/leaderboard">Leaderboard</Link><button className="game-button" onClick={onHistory}>History</button>{!!attempts?.remaining&&<button className="game-button quiet" onClick={()=>{localStorage.removeItem(SESSION_KEY);window.location.href="/";}}>Play again · {attempts.remaining} left</button>}</div><small className="v9-fine">{complete?<>En-ROADS {evaluation.modelVersion} · <a href={evaluation.sourceUrl} target="_blank" rel="noreferrer">Open scenario ↗</a><br/>Experimental browser connection. Conditional model projection, not a prediction.</>:"No estimated or invented temperature is used."}</small></section>;
+ useEffect(()=>{if(!waiting)return;let alive=true;const timer=setInterval(()=>{api<NonNullable<PublicRun["modelEvaluation"]>>(`/api/runs/${session.id}/model`,{headers:{Authorization:`Bearer ${session.token}`}}).then(value=>{if(alive)update.current(value);}).catch(()=>{});},2500);return()=>{alive=false;clearInterval(timer);};},[waiting,session.id,session.token]);
+ return <section className="v9-result" aria-label="Your result"><p className="v9-eyebrow">YOUR 2100 SCENARIO</p><h1>{complete?`+${evaluation.temperatureC!.toFixed(1)}°C`:error||evaluation.status==="failed"?"Calculation paused":"Calculating…"}</h1>
+ <p className="v9-result-player"><Flag code={run.country}/>{run.nickname}<span>{formatTime(run.elapsedMs??0)}</span></p>
+ {!complete&&!error&&evaluation.status!=="failed"&&<p className="v9-result-status"><LoaderCircle className="spin" size={17}/>{evaluation.status==="queued"?"Waiting for the calculation laptop…":"Evaluating your policies…"}</p>}
+ {(error||evaluation.error)&&<p role="alert" className="error-message">{error||evaluation.error}</p>}
+ {(error||evaluation.status==="failed")&&<button className="game-button gold" onClick={calculate}>Retry calculation</button>}
+ <div className="v9-result-actions">{complete&&evaluation.sourceUrl&&<button className="game-button gold" onClick={()=>setShowScenario(true)}>Results & graphs</button>}<Link className="game-button" href="/leaderboard">Leaderboard</Link><button className="game-button" onClick={onHistory}>History</button>{!!attempts?.remaining&&<button className="game-button quiet" onClick={()=>{localStorage.removeItem(SESSION_KEY);window.location.href="/";}}>Play again · {attempts.remaining} left</button>}</div>
+ <small className="v9-fine">{complete?<><a href="https://www.climateinteractive.org/" target="_blank" rel="noreferrer">Climate Interactive</a> / <a href="https://mitsloan.mit.edu/" target="_blank" rel="noreferrer">MIT Sloan</a> · En-ROADS {evaluation.modelVersion}<br/>Conditional projection · experimental browser connection.</>:"Your game is saved. Calculation does not count toward play time."}</small>
+ {showScenario&&evaluation.sourceUrl&&<ScenarioResults url={evaluation.sourceUrl} onClose={()=>setShowScenario(false)}/>}
+ </section>;
 }

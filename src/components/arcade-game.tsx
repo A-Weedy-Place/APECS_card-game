@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { ArrowDown, ArrowUp, Bird, Fish, Heart, Pause, Play, RotateCcw, Timer, Trophy } from "lucide-react";
-import { ARCADE_FRAMES, ARCADE_SIZE, initialPuffin, initialReef, puffinScore, reefScore, stepPuffin, stepReef, type ArcadeKind, type ArcadeResult, type Lane, type SwimMove } from "@/game/arcade";
+import { ARCADE_FRAMES, ARCADE_SIZE, initialPuffin, initialReef, puffinScore, reefScore, stepPuffin, stepReef, type ArcadeKind, type ArcadeResult, type ArcadeVariant, type Lane, type SwimMove } from "@/game/arcade";
 import { drawPuffin, drawReef, prepareCanvas } from "./arcade-art";
 import { playSound } from "@/lib/sound";
 
@@ -11,7 +11,7 @@ export const ARCADE_INFO = {
   cleanup:{title:"Reef Rescue",hint:"Pop trash. Dodge nets. Bubbles fire automatically.",control:"Tap a lane to swim · or use ↑ ↓"},
 };
 type Phase="ready"|"countdown"|"playing"|"paused"|"done";
-export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false,practice=false}:{kind:ArcadeKind;onStart?:()=>Promise<void>;onFinish?:(result:ArcadeResult)=>void;autoStart?:boolean;disabled?:boolean;practice?:boolean}) {
+export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false,practice=false,variant="rising"}:{kind:ArcadeKind;onStart?:()=>Promise<void>;onFinish?:(result:ArcadeResult)=>void;autoStart?:boolean;disabled?:boolean;practice?:boolean;variant?:ArcadeVariant}) {
   const info=ARCADE_INFO[kind],reduced=useReducedMotion();
   const canvas=useRef<HTMLCanvasElement>(null),stage=useRef<HTMLDivElement>(null),puffin=useRef(initialPuffin()),reef=useRef(initialReef());
   const phaseRef=useRef<Phase>(autoStart?"countdown":"ready"),resumePhase=useRef<"playing"|"countdown">("playing");
@@ -70,13 +70,13 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
           accumulator.current-=1000/60;
           if(kind==="flight"){
             previousY.current=puffin.current.y;const before=puffin.current.beacons;
-            puffin.current=stepPuffin(puffin.current,flaps.current.includes(puffin.current.frame+1));
+            puffin.current=stepPuffin(puffin.current,flaps.current.includes(puffin.current.frame+1),variant);
             if(puffin.current.beacons>before)playSound("select");
           }else{
             const tick=reef.current.frame+1;
             if(desiredLane.current!==reef.current.lane&&(!moves.current.length||tick-moves.current.at(-1)!.frame>=3))moves.current.push({frame:tick,lane:desiredLane.current});
             const lane=moves.current.at(-1)?.lane??1,before=reef.current;
-            previousY.current=before.y;reef.current=stepReef(before,lane);
+            previousY.current=before.y;reef.current=stepReef(before,lane,variant);
             if(reef.current.hits>before.hits)playSound("fail");else if(reef.current.cleared>before.cleared)playSound("tap");
           }
           const state=kind==="flight"?puffin.current:reef.current;
@@ -86,7 +86,7 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
       }
       const state=kind==="flight"?puffin.current:reef.current,alpha=phaseRef.current==="playing"?Math.min(1,accumulator.current/(1000/60)):1;
       const y=previousY.current+(state.y-previousY.current)*alpha,time=state.frame+(phaseRef.current==="playing"?alpha:0);
-      if(kind==="flight")drawPuffin(ctx!,puffin.current,time,reduceRef.current,y);else drawReef(ctx!,reef.current,time,reduceRef.current,y);
+      if(kind==="flight")drawPuffin(ctx!,puffin.current,time,reduceRef.current,y,variant);else drawReef(ctx!,reef.current,time,reduceRef.current,y);
       animation=requestAnimationFrame(draw);
     }
     const visibility=()=>{if(document.hidden)pause();};document.addEventListener("visibilitychange",visibility);
@@ -94,7 +94,7 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
     return()=>{mounted.current=false;cancelAnimationFrame(animation);document.removeEventListener("visibilitychange",visibility);};
     // Physics/input logs live in refs. HUD and pointer updates never restart RAF.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[kind]);
+  },[kind,variant]);
 
   return <div className={`arcade-game arcade-${kind} phase-${phase}`}>
     <div className="arcade-hud"><span className="arcade-points"><Trophy size={15} aria-hidden="true"/><b>{hud.score}</b></span>{kind==="cleanup"&&<span className="arcade-hearts" aria-label={`${hud.hearts} of 3 hearts`}>{[0,1,2].map(i=><Heart key={i} size={16} fill={i<hud.hearts?"currentColor":"none"} className={i<hud.hearts?"":"lost"} aria-hidden="true"/>)}</span>}<span><Timer size={15} aria-hidden="true"/>{hud.seconds}s</span><button type="button" className="arcade-pause" aria-label={phase==="paused"?"Resume game":"Pause game"} disabled={!["playing","countdown","paused"].includes(phase)} onClick={phase==="paused"?resume:pause}>{phase==="paused"?<Play size={18}/>:<Pause size={18}/>}</button></div>

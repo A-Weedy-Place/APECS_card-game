@@ -1,5 +1,9 @@
 # Next implementation work
 
+## Hosting completed 2026-11-02
+
+Game deployed at https://apecs-card-game.vercel.app with private Supabase persistence, password-hash admin sessions, audited player resets/activity and30-player live load verification (p95 784ms, no errors; model jobs excluded). See14-hosting-admin.md. Storage/deployment items below are historical. Remaining: supported hosted En-ROADS provider/licence, independent model-input review, human balance/prize fairness, physical iPhone/Safari and venue rehearsal. GitHub changes are uncommitted and automatic Git deployment is not connected, following AGENTS.md.
+
 ## Current0.9 priorities
 
 The0.9 base now covers all19 controls/67cards, upright phone UI, three resources, temperature/time ranking and experimental public-UI evaluation. See13 for routing and Progress for verification. Next: user/human balance and comprehension testing; physical iPhone/Safari; supported SDK and event automation/reuse terms; independent model-input/timing review; hosted durable storage and proper worker queue. The local public browser worker is intentionally serial and may take tens of seconds per uncached package. It is not a high-concurrency production solution. Do not add per-card °C or turn social resources into physical climate inputs.

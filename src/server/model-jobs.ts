@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { GameError } from "@/game/errors";
 import type { PolicySettings } from "@/game/policy-catalogue";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
-import { modelSettings, modelStatus, saveModelStatus } from "./store";
+import { modelSettings, modelStatus, saveModelStatus } from "./persistence";
+import { enqueueModel } from "./model-queue";
 const runtime=globalThis as typeof globalThis & {copModelQueue?:{active:Set<string>;tail:Promise<void>}};
 export function browserModelEnabled(){return process.env.ENROADS_BROWSER_ENABLED==="1"||(process.env.NODE_ENV==="development"&&process.env.ENROADS_BROWSER_ENABLED!=="0");}
 /** No user URLs, executable paths, tokens, names or client-supplied temperatures reach the process. */
@@ -16,14 +17,15 @@ function evaluate(settings:PolicySettings):Promise<ModelResult>{return new Promi
  child.on("close",code=>{clearTimeout(timeout);if(code!==0){console.error("En-ROADS bridge:",errors);reject(new Error("The experimental simulator connection failed. Your game is saved; retry later."));return;}try{const result=JSON.parse(output);if(!validateModelResult(result,settings))throw new Error("Model controls or version did not match. No temperature was saved.");resolveResult(result);}catch(error){reject(error);}});
  child.stdin.on("error",()=>{});child.stdin.end(JSON.stringify(settings));
 });}
-export function requestModel(id:string,token:string){
- const settings=modelSettings(id,token),status=modelStatus(settings);
+export async function requestModel(id:string,token:string){
+ const settings=await modelSettings(id,token),status=await modelStatus(settings);
  if(status.status==="complete")return status;
- if(!browserModelEnabled())throw new GameError("The local simulator bridge is disabled. SDK access is not yet configured.",503);
+ if(process.env.DATABASE_URL && process.env.MODEL_QUEUE_ENABLED==="1")return enqueueModel(settings);
+ if(process.env.VERCEL||!browserModelEnabled())throw new GameError("Temperature evaluation is not configured on this server. Your game is saved; SDK access is pending.",503);
  runtime.copModelQueue??={active:new Set(),tail:Promise.resolve()};const queue=runtime.copModelQueue,key=scenarioKey(settings);
  if(queue.active.has(key))return modelStatus(settings);
  if(queue.active.size>=10)throw new GameError("The simulator queue is full. Retry shortly; your game is saved.",429);
- queue.active.add(key);saveModelStatus(settings,"queued");
- queue.tail=queue.tail.then(async()=>{try{saveModelStatus(settings,"running");saveModelStatus(settings,"complete",await evaluate(settings));}catch(error){saveModelStatus(settings,"failed",undefined,error instanceof Error?error.message:"Model evaluation failed.");}finally{queue.active.delete(key);}});
+ queue.active.add(key);try{await saveModelStatus(settings,"queued");}catch(error){queue.active.delete(key);throw error;}
+ queue.tail=queue.tail.then(async()=>{try{await saveModelStatus(settings,"running");await saveModelStatus(settings,"complete",await evaluate(settings));}catch(error){await saveModelStatus(settings,"failed",undefined,error instanceof Error?error.message:"Model evaluation failed.");}finally{queue.active.delete(key);}});
  return modelStatus(settings);
 }

@@ -20,7 +20,7 @@ test("19 bounded control families have progressive prerequisites and 67 distinct
  assert.equal(new Set(hashes).size,67);for(const control of CONTROLS)assert.ok(POLICY_CARDS.filter(c=>c.factor===control.id).length>=2);
 });
 test("ten 2026 rounds stop the server clock without inventing a temperature or game-point score",()=>{
- let state=fresh();assert.equal(state.rulesVersion,"prototype-0.9");state.startedAt=new Date(Date.now()-60000).toISOString();
+ let state=fresh();assert.equal(state.rulesVersion,"prototype-0.10");state.startedAt=new Date(Date.now()-60000).toISOString();
  while(!state.finishedAt)state=takeAction(state,"save");
  assert.equal("pressure"in state.projection,false);assert.equal("pressure"in projectFor([],"prototype-0.9"),false);
  assert.equal(state.round,10);assert.equal(state.score,null);assert.ok(state.elapsedMs!>=60000);assert.equal(state.projection.kind,"pending");assert.equal(state.projection.temperatureC,undefined);assert.deepEqual(state.projection.trajectory,[]);assert.ok(state.history.every(h=>h.year===2026));assert.throws(()=>calculateScore(state),/requires a completed/);assert.throws(()=>takeAction(state,"save"),/complete/);

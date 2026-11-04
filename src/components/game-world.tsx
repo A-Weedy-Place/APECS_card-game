@@ -2,7 +2,7 @@
 import { Snowflake } from "lucide-react";
 import type { PublicRun } from "@/game/types";
 export function WorldBackground() {
-  return <div className="world-background" aria-hidden="true"><div className="world-art"/><div className="world-shade"/><div className="world-grain"/></div>;
+  return <div className="world-background" aria-hidden="true"><div className="world-art world-photo"/><div className="world-shade"/></div>;
 }
 export function WorldProgress({ run }: { run: PublicRun }) {
   const value = Math.min(100, Math.round(run.transition));

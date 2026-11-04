@@ -85,7 +85,7 @@ export function Game() {
   const isV4 = run?.rulesVersion === "prototype-0.4" || isV5;
   const packageCost = run?.offers.filter(c => chosen.includes(c.id)).reduce((sum, c) => sum + c.cost, 0) ?? 0;
 
-  if(run?.rulesVersion==="prototype-0.9"&&session)return <GameV9 initialRun={run} session={session}/>;
+  if(run && modelRules(run.rulesVersion)&&session)return <GameV9 initialRun={run} session={session}/>;
   if (run && ["prototype-0.6", "prototype-0.7", "prototype-0.8"].includes(run.rulesVersion) && session) return <GameV6 initialRun={run} session={session}/>;
 
   return <div className="game-experience"><WorldBackground/>
@@ -173,3 +173,4 @@ export function Game() {
     </>}</dialog>
   </div>;
 }
+import { modelRules } from "@/game/model-rules";

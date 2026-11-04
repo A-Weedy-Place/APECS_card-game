@@ -1,4 +1,4 @@
-import { ARCADE_SIZE, iceGate, laneY, type PuffinState, type ReefState, type Trash } from "@/game/arcade";
+import { ARCADE_SIZE, iceGate, laneY, type ArcadeVariant, type PuffinState, type ReefState, type Trash } from "@/game/arcade";
 type Ctx = CanvasRenderingContext2D;
 const TAU=Math.PI*2;
 function shape(ctx:Ctx,points:number[][],fill:string|CanvasGradient,stroke?:string) {
@@ -8,7 +8,7 @@ function shape(ctx:Ctx,points:number[][],fill:string|CanvasGradient,stroke?:stri
 function ellipse(ctx:Ctx,x:number,y:number,rx:number,ry:number,fill:string) {ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,TAU);ctx.fillStyle=fill;ctx.fill();}
 function line(ctx:Ctx,points:number[][],colour:string,width=2) {ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.stroke();}
 function star(ctx:Ctx,x:number,y:number,r:number,colour:string) {shape(ctx,Array.from({length:8},(_,i)=>[x+Math.cos(i*Math.PI/4)*r*(i%2?.42:1),y+Math.sin(i*Math.PI/4)*r*(i%2?.42:1)]),colour);}
-export function drawPuffin(ctx:Ctx,state:PuffinState,renderFrame:number,reduced:boolean,y=state.y) {
+export function drawPuffin(ctx:Ctx,state:PuffinState,renderFrame:number,reduced:boolean,y=state.y,variant:ArcadeVariant="classic") {
   const t=reduced?0:renderFrame;
   const sky=ctx.createLinearGradient(0,0,0,420);sky.addColorStop(0,"#183b65");sky.addColorStop(.6,"#5db1c8");sky.addColorStop(1,"#c5f0ed");ctx.fillStyle=sky;ctx.fillRect(0,0,420,420);
   const sun=ctx.createRadialGradient(330,83,5,330,83,100);sun.addColorStop(0,"#f9edbf99");sun.addColorStop(1,"#ecf4d400");ctx.fillStyle=sun;ctx.fillRect(230,0,190,185);ellipse(ctx,330,83,25,25,"#f8ecd7");
@@ -21,7 +21,7 @@ export function drawPuffin(ctx:Ctx,state:PuffinState,renderFrame:number,reduced:
   ctx.fillStyle="#3a91ac";ctx.fillRect(0,345,420,75);
   for(let i=0;i<13;i++){const x=((i*43-t*.35+600)%530)-45;line(ctx,[[x,354+i%5*11],[x+23,354+i%5*11]],"#bde8e955",1.5);}
   for(let i=0;i<22;i++){
-    const gate=iceGate(i,renderFrame);if(gate.x< -70||gate.x>435)continue;
+    const gate=iceGate(i,renderFrame,variant);if(gate.x< -70||gate.x>435)continue;
     const top=gate.centre-gate.gap/2,bottom=gate.centre+gate.gap/2;
     iceberg(ctx,gate.x,0,gate.width,top,true);iceberg(ctx,gate.x,bottom,gate.width,420-bottom,false);
     if(!(state.collected&(1<<i))){ellipse(ctx,gate.x+26,gate.centre,14,14,"#f7d77627");star(ctx,gate.x+26,gate.centre,10,"#ffe49a");star(ctx,gate.x+26,gate.centre,4,"#fffbe4");}

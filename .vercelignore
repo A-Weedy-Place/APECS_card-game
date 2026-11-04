@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+data
+.env*
+!.env.example
+screenshots
+test-results
+playwright-report
+.playwright
+supabase/.temp
+supabase/.branches
+*.log
