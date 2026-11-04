@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-05 — Restore score calculation and reuse the browser
+
+The laptop worker had terminated after an unhandled `ECONNABORTED` from a checked-out Postgres client, leaving two jobs queued. Added an active-client error listener and discard on broken connections or failed rollback. The worker now retries temporary result-write errors and reuses a hidden Edge process via an isolated child, with a fresh context for each scenario. It still verifies the full version-pinned public scenario before saving.
+
+Verified read-only reconnection after dropping an isolated Supabase test connection. Both original waiting jobs completed, one after a scoped retry with the updated worker. Timed the same public-model package at 11.29s before, 10.23s cold after and 8.17s with the warm browser, all at +3.0°C with exact 19-input readback. A different warm baseline returned +3.3°C with its own complete settings. Typecheck and production build passed. The timing sample measures model work rather than queue wait and does not establish event-scale throughput. Production checks follow the push and Vercel release.
+
 ## 2026-11-04 — Phone Library, policy history and round receipts
 
 Organized Library into En-ROADS areas and paths with smaller photo-and-name tiles and a Support cards section. History now pairs a compact round log with a tappable policy tree, marking adopted, rejected and unplayed cards. The policy package receipt lists each server-returned verdict and offers Continue. Reef Rescue shows drag guidance before Start, and supports dragging, lane taps and keyboard arrows.

@@ -16,7 +16,25 @@ export function pool() {
   return value;
 }
 export async function transaction<T>(fn:(client:PoolClient)=>Promise<T>) {
-  const client=await pool().connect();
-  try {await client.query("BEGIN");await client.query("SET LOCAL lock_timeout='5s'");const result=await fn(client);await client.query("COMMIT");return result;}
-  catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+  const client = await pool().connect();
+  let discard = false;
+  // The pool's idle error listener is detached while the client is checked out.
+  const connectionLost = () => { discard = true; };
+  client.on("error", connectionLost);
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL lock_timeout='5s'");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    if (!discard) {
+      try { await client.query("ROLLBACK"); }
+      catch { discard = true; }
+    }
+    throw error;
+  } finally {
+    client.release(discard);
+    client.off("error", connectionLost);
+  }
 }
