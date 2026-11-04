@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-04 — Phone Library, policy history and round receipts
+
+Organized Library into En-ROADS areas and paths with smaller photo-and-name tiles and a Support cards section. History now pairs a compact round log with a tappable policy tree, marking adopted, rejected and unplayed cards. The policy package receipt lists each server-returned verdict and offers Continue. Reef Rescue shows drag guidance before Start, and supports dragging, lane taps and keyboard arrows.
+
+Verified the production build and three focused Edge cases. A two-card round returned one pass and one rejection, and both appeared in the receipt and history. Checked history width at 320px, Library paths and card prerequisites, and Reef Rescue drag, keyboard, pause and replay. The final spacing change passed the focused phone check. Reviewed phone screenshots. Production verification follows the GitHub push and Vercel build.
+
 ## 2026-11-04 — Tutorial opens for each game
 
 Scoped tutorial dismissal to the current run ID. An older browser-wide dismissal no longer suppresses a fresh game's tutorial. The production build and one focused Edge test passed. The test started two games in the same browser with the old dismissal present, checked that both opened the tutorial, and confirmed refresh after dismissal keeps it closed. Production verification follows the GitHub push and Vercel build.

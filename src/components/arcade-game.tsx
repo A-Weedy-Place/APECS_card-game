@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
-import { ArrowDown, ArrowUp, Bird, Fish, Heart, Pause, Play, RotateCcw, Timer, Trophy } from "lucide-react";
+import { Bird, Fish, Heart, Pause, Play, RotateCcw, Timer, Trophy } from "lucide-react";
 import { ARCADE_FRAMES, ARCADE_SIZE, initialPuffin, initialReef, puffinScore, reefScore, stepPuffin, stepReef, type ArcadeKind, type ArcadeResult, type ArcadeVariant, type Lane, type SwimMove } from "@/game/arcade";
 import { drawPuffin, drawReef, prepareCanvas } from "./arcade-art";
 import { playSound } from "@/lib/sound";
 
 export const ARCADE_INFO = {
   flight:{title:"Flappy Flight",hint:"Tap to fly. Find the gaps. Catch the beacons.",control:"Tap anywhere or press Space to flap"},
-  cleanup:{title:"Reef Rescue",hint:"Pop trash. Dodge nets. Bubbles fire automatically.",control:"Tap a lane to swim · or use ↑ ↓"},
+  cleanup:{title:"Reef Rescue",hint:"Pop trash. Dodge nets. Bubbles fire automatically.",control:"Drag up or down to move · or use ↑ ↓"},
 };
 type Phase="ready"|"countdown"|"playing"|"paused"|"done";
 export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false,practice=false,variant="rising"}:{kind:ArcadeKind;onStart?:()=>Promise<void>;onFinish?:(result:ArcadeResult)=>void;autoStart?:boolean;disabled?:boolean;practice?:boolean;variant?:ArcadeVariant}) {
@@ -116,7 +116,7 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
       {phase==="playing"&&hud.boost&&<span className="arcade-streak">Bubble burst!</span>}
     </div></div>
     <p className="arcade-controls-hint">{phase==="done"?"":info.control}</p>
-    {phase==="ready"?<button className="game-button gold arcade-start" disabled={disabled||pending} onClick={start}><Play size={18}/>{pending?"Starting…":`Start ${info.title}`}</button>:phase==="done"?practice?<button className="game-button gold arcade-start" onClick={start}><RotateCcw size={18}/> Play again</button>:null:kind==="flight"?<button className="arcade-control flap-control" disabled={phase!=="playing"||disabled} onClick={event=>{if(event.detail===0)flap();}} onPointerDown={event=>{event.preventDefault();flap();}} onKeyDown={event=>{if([" ","Enter"].includes(event.key)){event.preventDefault();if(!event.repeat)flap();}}}><Bird size={19}/> Flap</button>:<div className="arcade-steering"><button className="arcade-control" disabled={phase!=="playing"||disabled} onClick={()=>swim(-1)}><ArrowUp size={19}/> Swim up</button><button className="arcade-control" disabled={phase!=="playing"||disabled} onClick={()=>swim(1)}><ArrowDown size={19}/> Swim down</button></div>}
+    {phase==="ready"?<button className="game-button gold arcade-start" disabled={disabled||pending} onClick={start}><Play size={18}/>{pending?"Starting…":`Start ${info.title}`}</button>:phase==="done"?practice?<button className="game-button gold arcade-start" onClick={start}><RotateCcw size={18}/> Play again</button>:null:kind==="flight"?<button className="arcade-control flap-control" disabled={phase!=="playing"||disabled} onClick={event=>{if(event.detail===0)flap();}} onPointerDown={event=>{event.preventDefault();flap();}} onKeyDown={event=>{if([" ","Enter"].includes(event.key)){event.preventDefault();if(!event.repeat)flap();}}}><Bird size={19}/> Flap</button>:null}
     <span className="sr-only" role="status">{phase==="done"?`${info.title}: ${hud.score} points out of 100.`:phase==="paused"?"Game paused.":""}</span>
   </div>;
 }

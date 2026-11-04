@@ -29,16 +29,17 @@ test("practice arcade fits phones, has crisp canvas art, pause/resume and a real
   await page.getByRole("button",{name:"Reef Rescue",exact:true}).click();await expect(page.getByRole("button",{name:"Start Reef Rescue",exact:true})).toBeVisible();expect(errors).toEqual([]);
 });
 
-test("reef practice supports lane taps, touch dragging, buttons, keyboard and reduced-motion play",async({page})=>{
+test("reef practice supports dragging, keyboard and reduced-motion play",async({page})=>{
   test.setTimeout(75000);await page.emulateMedia({reducedMotion:"reduce"});await page.setViewportSize({width:375,height:667});await page.goto("/arcade");
   await page.getByRole("button",{name:"Reef Rescue",exact:true}).click();
+  await expect(page.getByText(/Drag up or down to move/)).toBeVisible();
   await page.screenshot({path:"screenshots/v8-reef-ready.png",animations:"disabled"});
   await page.getByRole("button",{name:"Start Reef Rescue",exact:true}).click();
   await expect(page.locator(".arcade-game")).toHaveClass(/phase-playing/);
-  await page.getByRole("button",{name:"Swim up",exact:true}).click();
+  await expect(page.getByRole("button",{name:/Swim (up|down)/})).toHaveCount(0);
   const field=page.getByRole("group",{name:/^Reef Rescue playfield/});const bounds=await field.boundingBox();
   await page.mouse.move(bounds!.x+bounds!.width*.65,bounds!.y+bounds!.height*.3);await page.mouse.down();await page.mouse.move(bounds!.x+bounds!.width*.65,bounds!.y+bounds!.height*.75);await page.mouse.up();
-  await page.waitForTimeout(180);await field.focus();await page.keyboard.press("ArrowUp");await page.waitForTimeout(180);await page.getByRole("button",{name:"Swim down",exact:true}).click();
+  await page.waitForTimeout(180);await field.focus();await page.keyboard.press("ArrowUp");await page.waitForTimeout(180);await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(2800);await page.getByRole("button",{name:"Pause game",exact:true}).click();
   await page.screenshot({path:"screenshots/v8-reef-paused.png",animations:"disabled"});
   await page.getByRole("button",{name:"Resume",exact:true}).click();

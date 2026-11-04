@@ -72,3 +72,56 @@
   .v9-tools:has(button:nth-child(3)){gap:8px}
   .tutorial-panel{width:254px}
 }
+
+.arcade-game.arcade-cleanup:is(.phase-countdown,.phase-playing,.phase-paused){
+  grid-template-rows:auto minmax(0,1fr) auto;
+}
+
+.policy-journal-sheet{width:min(720px,calc(100vw - 24px));scrollbar-width:thin;scrollbar-color:#658994 #112b37}
+.library-area{margin:0 0 20px}
+.library-area h3,.policy-history-columns h3{font:700 18px/1.15 Georgia,serif;color:#ffe5a4}
+.library-area h3{padding:7px 9px;border-inline-start:3px solid var(--area-accent,#91ccbf);background:#ffffff09;color:var(--area-accent,#b2ece0);border-radius:4px}
+.library-path h4{margin:10px 0 4px;font-size:12px;color:#dce9eb}
+.library-area .v9-library{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:6px 0 0}
+.library-area .v9-library-card{gap:4px;padding:4px;border-color:#6c939b90;box-shadow:none;border-radius:6px;background:#102e3b}
+.library-area .v9-library-card .photo-art{height:auto;aspect-ratio:3/2;border-radius:3px}
+.library-area .v9-library-card strong{font-size:clamp(10px,2.6vw,13px);line-height:1.15;padding:2px 1px;overflow-wrap:anywhere}
+.library-area .v9-library-card:hover{border-color:var(--card-accent)}
+@media(max-width:359px){.library-area .v9-library{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:360px){
+  .library-path:has(.v9-library[data-count="3"]){display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:center;gap:7px}
+  .library-path:has(.v9-library[data-count="3"]) h4{margin:0;overflow-wrap:anywhere}
+  .library-path .v9-library[data-count="3"]{grid-column:2/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+.policy-history-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:clamp(8px,3vw,24px);align-items:start}
+.policy-history-columns h3{margin-bottom:8px}
+.policy-round-log>p,.policy-log-round p{color:#b9cfd8;font-size:12px}
+.policy-log-round{padding:6px 6px 7px;border-top:1px solid #85b2bd40}
+.policy-log-round h4,.policy-tree-area h4{font-size:12px;margin:0 0 4px;color:#e8eeed}
+.policy-log-round ul,.policy-receipt{padding:0;margin:0;list-style:none}
+.policy-log-round li{display:flex;align-items:flex-start;gap:5px;margin:4px 0;font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.policy-mark{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700}
+.policy-mark.passed,.policy-tree-legend span:first-child{color:#9be6c8}
+.policy-mark.rejected,.policy-tree-legend span:nth-child(2){color:#ffb7ab}
+.policy-tree{padding-inline-start:8px;border-inline-start:1px solid #85b2bd40}
+.policy-tree-legend{display:flex;gap:2px 7px;flex-wrap:wrap;color:#c4d6dc;font-size:10px;line-height:1.3}
+.policy-tree-area{margin-top:12px}
+.policy-tree-path{border-top:1px solid #85b2bd32;padding-top:4px}
+.policy-tree-path h5{font-size:11px;margin:0;line-height:1.25;color:#d6e5e8;overflow-wrap:anywhere}
+.policy-tree-branch{display:flex;align-items:center;gap:4px}
+.policy-tree-branch small{font-size:10px;color:#a8c5cd;text-transform:capitalize}
+.policy-nodes{display:flex;flex-wrap:wrap;align-items:center}
+.policy-nodes.connected{flex-wrap:nowrap}
+.policy-nodes button{position:relative;display:grid;place-items:center;width:clamp(29px,9vw,44px);min-height:40px;padding:0;border:0;border-radius:6px;background:none;color:#b3c6ce;font-size:11px}
+.policy-nodes button span{z-index:1;display:grid;place-items:center;width:24px;height:24px;border:1px solid #688691;border-radius:50%;background:#193744}
+.policy-nodes.connected button:not(:last-child)::after{content:"";position:absolute;inset-inline-start:50%;width:100%;top:50%;border-top:1px solid #688691}
+.policy-nodes button[data-status="Adopted"] span{background:#215d55;border-color:#80d2b5;color:#c3ffdf}
+.policy-nodes button[data-status="Rejected"] span{background:#5b3538;border-color:#db9389;color:#ffc4b9}
+.policy-nodes button:hover span{border-color:#ffe2a3}
+
+.policy-receipt-sheet{width:min(440px,calc(100vw - 24px))}
+.policy-receipt{display:grid;gap:8px}
+.policy-receipt li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid #86aeb94d;border-radius:8px;background:#ffffff09;font-size:13px}
+.policy-receipt .policy-mark{font-size:12px}
+.policy-continue{width:100%;margin-top:14px}

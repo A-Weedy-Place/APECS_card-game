@@ -59,14 +59,48 @@ test("phone hand, resources, library, selection, saved state and pending result"
  for(const[width,height]of[[320,568],[360,640],[390,844],[430,932],[844,390],[1366,768]]){await page.setViewportSize({width,height});await expect(page.locator(".v9-card")).toHaveCount(3);expect(await page.evaluate(()=>{const cards=Array.from(document.querySelectorAll(".v9-card")).map(c=>c.getBoundingClientRect());return cards.every((c,i)=>c.left>=0&&c.right<=innerWidth&&c.bottom<=innerHeight&&(!i||c.left>=cards[i-1].right))&&document.documentElement.scrollHeight<=innerHeight+1&&document.documentElement.scrollWidth<=innerWidth;}),`${width}x${height} upright/nonoverlapping/one screen`).toBe(true);if(width===320||height===390)await page.screenshot({path:`screenshots/v9-${width}x${height}.png`,animations:"disabled"});await expect(page.getByRole("button",{name:"Skip",exact:true})).toBeInViewport();await expect(page.getByRole("button",{name:"Mute sound",exact:true})).toBeInViewport();expect(await page.locator(".v9-card").evaluateAll(cards=>cards.every(card=>{const box=(s:string)=>card.querySelector(s)!.getBoundingClientRect();return box(".v9-card-art").height>=30&&box("h2").bottom<=box(".v9-card-face>p").top+1&&box(".v9-card-face>p").bottom<=box(".v9-odds").top+1&&box(".v9-odds").bottom<=box(".v9-select").top+1;})),`nonoverlapping card content ${width}x${height}`).toBe(true);}
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:"screenshots/v9-phone.png",animations:"disabled"});await page.getByRole("button",{name:"Mute sound",exact:true}).click();await expect(page.getByRole("button",{name:"Enable sound",exact:true})).toBeVisible();
  await page.locator(".v9-resource button").first().click();await expect(page.locator(".v9-stat-tip")).toContainText("separate from En-ROADS");await page.locator(".v9-resource button").first().click();
- await page.getByRole("button",{name:"Library",exact:true}).click();await expect(page.locator(".v9-library-card")).toHaveCount(67);expect(new Set(await page.locator(".v9-library img").evaluateAll(images=>images.map(i=>i.getAttribute("src")))).size).toBe(67);await page.getByRole("combobox").selectOption("population");await expect(page.locator(".v9-library-card")).toHaveCount(4);await page.screenshot({path:"screenshots/v9-library.png",animations:"disabled"});await page.getByRole("button",{name:"Close Library",exact:true}).click();
- const affordable=run.offers.find(c=>c.affordable)!;await page.getByRole("button",{name:`Inspect ${affordable.title}`,exact:true}).click();await expect(page.getByRole("dialog")).toContainText("approval");await page.getByRole("dialog").getByRole("button",{name:"Select",exact:true}).click();await expect(page.locator(".v9-select[aria-pressed=true]")).toHaveCount(1);run=await act(page,()=>page.locator(".v9-controls").getByRole("button",{name:/^Play/}).click());expect(run.round).toBe(1);await page.reload();await expect(page.locator(".v9-rounds .current")).toHaveText("2");
+ await page.getByRole("button",{name:"Library",exact:true}).click();
+ const library=page.getByRole("dialog",{name:"Library",exact:true});
+ await expect(library.getByRole("heading",{name:"Energy",exact:true})).toBeVisible();
+ await expect(library.getByRole("heading",{name:"Oil",exact:true})).toBeAttached();
+ await expect(page.locator(".v9-library-card")).toHaveCount(67);expect(new Set(await page.locator(".v9-library img").evaluateAll(images=>images.map(i=>i.getAttribute("src")))).size).toBe(67);
+ await expect.poll(()=>library.locator("img").evaluateAll(images=>images.filter(img=>{const bounds=img.getBoundingClientRect();return bounds.top>=0&&bounds.bottom<=innerHeight;}).every(img=>(img as HTMLImageElement).naturalWidth>0))).toBe(true);
+ await page.screenshot({path:"screenshots/v9-library.png",animations:"disabled"});
+ await page.getByRole("combobox").selectOption("population");await expect(page.locator(".v9-library-card")).toHaveCount(4);await page.getByRole("button",{name:"Close Library",exact:true}).click();
+ run=await skip(page,run);run=await skip(page,run);
+ const selected=run.offers.slice(0,2);
+ for(const card of selected){
+   await page.getByRole("button",{name:`Inspect ${card.title}`,exact:true}).click();
+   await page.getByRole("dialog").getByRole("button",{name:"Select",exact:true}).click();
+ }
+ await expect(page.locator(".v9-select[aria-pressed=true]")).toHaveCount(2);
+ run=await act(page,()=>page.locator(".v9-controls").getByRole("button",{name:/^Play/}).click());expect(run.round).toBe(3);
+ const receipt=page.getByRole("dialog",{name:"Round 3 results"});
+ await expect(receipt.getByRole("listitem")).toHaveCount(2);
+ for(const action of run.lastActions!.filter(action=>action.kind==="policy")){
+   await expect(receipt.getByRole("listitem").filter({hasText:action.title})).toContainText(action.accepted?"Passed":"Rejected");
+ }
+ await page.screenshot({path:"screenshots/v9-round-receipt.png",animations:"disabled"});
+ await receipt.getByRole("button",{name:"Continue",exact:true}).click();
+ await page.reload();await expect(page.locator(".v9-rounds .current")).toHaveText("4");
  const model=page.waitForResponse(r=>r.url().endsWith("/model")&&r.request().method()==="POST");
  while(!run.finishedAt){if(run.specialRound){await expect(page.locator(".arcade-boosts button")).toHaveCount(0);await expect(page.locator(".arcade-reward-tag")).toContainText("5 coins");await expect(page.getByRole("button",{name:run.specialRound==="flight"?"Start Flappy Flight":"Start Reef Rescue",exact:true})).toBeVisible();}run=await skip(page,run);}
- await expect(page.getByRole("heading",{name:"Calculation paused",exact:true})).toBeVisible();expect(run.score).toBeNull();expect(run.elapsedMs).toBeGreaterThan(0);expect((await model).status()).toBe(503);await expect(page.getByRole("button",{name:"Calculate temperature",exact:true})).toHaveCount(0);await expect(page.locator(".v9-result [role=alert]")).toContainText("not configured");await page.getByRole("button",{name:"History",exact:true}).first().click();await expect(page.getByRole("dialog")).toContainText(affordable.title);await page.keyboard.press("Escape");expect(errors).toEqual([]);
+ await expect(page.getByRole("heading",{name:"Calculation paused",exact:true})).toBeVisible();expect(run.score).toBeNull();expect(run.elapsedMs).toBeGreaterThan(0);expect((await model).status()).toBe(503);await expect(page.getByRole("button",{name:"Calculate temperature",exact:true})).toHaveCount(0);await expect(page.locator(".v9-result [role=alert]")).toContainText("not configured");
+ await page.getByRole("button",{name:"History",exact:true}).first().click();
+ const history=page.getByRole("dialog",{name:"History",exact:true});
+ await expect(history.getByRole("heading",{name:"Round log",exact:true})).toBeVisible();
+ await expect(history.getByRole("heading",{name:"Policy tree",exact:true})).toBeVisible();
+ for(const action of run.history.filter(action=>action.kind==="policy")){
+   await expect(history.getByRole("region",{name:"Round 3",exact:true})).toContainText(action.title);
+   await expect(history.getByRole("button",{name:`${action.title} · ${action.accepted?"Adopted":"Rejected"}`,exact:true})).toHaveCount(1);
+ }
+ await page.screenshot({path:"screenshots/v9-policy-history.png",animations:"disabled"});
+ await page.setViewportSize({width:320,height:568});
+ expect(await history.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth)).toBe(true);
+ await page.keyboard.press("Escape");expect(errors).toEqual([]);
 });
 test("keyboard, reduced motion and read-only library prerequisites",async({page})=>{
- await page.emulateMedia({reducedMotion:"reduce"});await page.setViewportSize({width:1440,height:900});await page.goto("/");await page.keyboard.press("Tab");await expect(page.getByRole("link",{name:"Skip to content"})).toBeFocused();await join(page,"Keyboard Player");const select=page.locator(".v9-select:not(:disabled)").first();await select.focus();await page.keyboard.press("Enter");await expect(select).toHaveAttribute("aria-pressed","true");await page.keyboard.press("Enter");await expect(select).toHaveAttribute("aria-pressed","false");await page.getByRole("button",{name:"Library",exact:true}).click();await page.getByRole("combobox").selectOption("coal");await expect(page.locator(".v9-library-card")).toHaveCount(3);await expect(page.locator(".v9-library-card").nth(1)).toContainText("Needs");await page.locator(".v9-library-card").nth(2).click();await expect(page.getByRole("button",{name:"Not in this hand",exact:true})).toBeDisabled();await page.keyboard.press("Escape");await page.screenshot({path:"screenshots/v9-desktop.png",animations:"disabled"});
+ await page.emulateMedia({reducedMotion:"reduce"});await page.setViewportSize({width:1440,height:900});await page.goto("/");await page.keyboard.press("Tab");await expect(page.getByRole("link",{name:"Skip to content"})).toBeFocused();await join(page,"Keyboard Player");const select=page.locator(".v9-select:not(:disabled)").first();await select.focus();await page.keyboard.press("Enter");await expect(select).toHaveAttribute("aria-pressed","true");await page.keyboard.press("Enter");await expect(select).toHaveAttribute("aria-pressed","false");await page.getByRole("button",{name:"Library",exact:true}).click();await page.getByRole("combobox").selectOption("coal");await expect(page.locator(".v9-library-card")).toHaveCount(3);await page.locator(".v9-library-card").nth(2).click();await expect(page.getByRole("dialog")).toContainText("Requires Coal price reform");await expect(page.getByRole("button",{name:"Not in this hand",exact:true})).toBeDisabled();await page.keyboard.press("Escape");await expect(page.getByRole("dialog",{name:"Library",exact:true})).toBeVisible();await expect(page.locator(".v9-library-card")).toHaveCount(3);await page.keyboard.press("Escape");await page.screenshot({path:"screenshots/v9-desktop.png",animations:"disabled"});
 });
 test("every catalogue card remains readable in a three-card 320px hand",async({page})=>{
  await page.emulateMedia({reducedMotion:"reduce"});await page.setViewportSize({width:320,height:568});const run=await join(page,"Layout Catalogue"),library=run.library!;await page.waitForURL("**/play");await expect(page.locator(".v9-board")).toBeVisible();
