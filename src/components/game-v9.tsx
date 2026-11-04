@@ -13,7 +13,7 @@ import { ClimateCoin } from "./climate-coin";
 import { ArcadeRound } from "./arcade-round";
 import { Flag } from "./country-picker";
 import { ScenarioResults } from "./scenario-results";
-import { GameTutorial, TUTORIAL_SEEN_KEY } from "./game-tutorial";
+import { GameTutorial } from "./game-tutorial";
 type QuotedPolicy=OfferedCard & PolicyCardV9;
 const resourceNames={economy:"Revenue growth",support:"Politics",awareness:"Public engagement"};
 const colours:Record<string,string>={Energy:"#f5be5b",Demand:"#78c5fa",Growth:"#bba0f7",Removal:"#73d0b1","Land & gases":"#a5d66c",politics:"#ca9dff",economics:"#eabc5c",awareness:"#5ed5cf"};
@@ -31,14 +31,15 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  const acting=useRef(false),pending=useRef<{key:string;body:Record<string,unknown>}|null>(null);
  const board = useRef<HTMLElement>(null);
  const [tutorial, setTutorial] = useState(false);
+ const tutorialKey = `cop-spotlight-tour-seen:${initialRun.id}`;
  useEffect(()=>{setSound(soundEnabled());},[]);
  useEffect(() => {
   if (initialRun.round !== 0 || initialRun.finishedAt) return;
-  try { if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) setTutorial(true); }
+  try { if (!localStorage.getItem(tutorialKey)) setTutorial(true); }
   catch { setTutorial(true); }
- }, [initialRun.round, initialRun.finishedAt]);
+ }, [initialRun.round, initialRun.finishedAt, tutorialKey]);
  function closeTutorial() {
-  try { localStorage.setItem(TUTORIAL_SEEN_KEY, "1"); } catch { /* Storage may be unavailable. */ }
+  try { localStorage.setItem(tutorialKey, "1"); } catch { /* Storage may be unavailable. */ }
   setTutorial(false);
  }
  const cost=run.offers.filter(c=>chosen.includes(c.id)).reduce((sum,c)=>sum+c.cost,0);

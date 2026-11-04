@@ -3,8 +3,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { PublicRun } from "@/game/types";
 
-export const TUTORIAL_SEEN_KEY = "cop-spotlight-tour-v1";
-
 function tutorialSteps({ resources, nextIncome, redrawCost }: PublicRun) {
   const shufflePrice = `${redrawCost} ${redrawCost === 1 ? "coin" : "coins"}`;
   return [

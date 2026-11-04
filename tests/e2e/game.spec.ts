@@ -4,9 +4,11 @@ async function join(page:Page,name:string,{skipTutorial=true}={}){await page.got
 async function act(page:Page,click:()=>Promise<void>){const response=page.waitForResponse(r=>r.url().includes("/actions")&&r.request().method()==="POST");await click();const raw=await response;expect(raw.status(),await raw.text()).toBe(200);return await raw.json() as PublicRun;}
 async function skip(page:Page,run:PublicRun){return act(page,()=>page.getByRole("button",{name:run.specialRound?"Skip challenge":"Skip",exact:true}).click());}
 
-test("first play spotlights the board and remembers dismissal",async({page})=>{
+test("each new game spotlights the board and remembers its own dismissal",async({page})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   await page.setViewportSize({width:375,height:667});
+  await page.goto("/");
+  await page.evaluate(()=>localStorage.setItem("cop-spotlight-tour-v1","1"));
   const run=await join(page,"Tutorial Player",{skipTutorial:false});
   const guide=page.getByRole("dialog",{name:"How to play"});
   await expect(guide.getByRole("button",{name:"Next"})).toBeFocused();
@@ -42,6 +44,13 @@ test("first play spotlights the board and remembers dismissal",async({page})=>{
   await page.keyboard.press("Escape");
   await expect(guide).toHaveCount(0);
   await expect(help).toBeFocused();
+  const next=await join(page,"Tutorial Replay",{skipTutorial:false});
+  expect(next.id).not.toBe(run.id);
+  await expect(guide.getByRole("heading",{name:"Your coins"})).toBeVisible();
+  await guide.getByRole("button",{name:"Skip tutorial",exact:true}).click();
+  await page.reload();
+  await expect(help).toBeVisible();
+  await expect(guide).toHaveCount(0);
 });
 test("phone hand, resources, library, selection, saved state and pending result",async({page})=>{
  const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));await page.setViewportSize({width:390,height:844});let run=await join(page,"Mobile Player");expect(run.rulesVersion).toBe("prototype-0.10");

@@ -1,5 +1,9 @@
 # Implementation progress
 
+## 2026-11-04 — Tutorial opens for each game
+
+Scoped tutorial dismissal to the current run ID. An older browser-wide dismissal no longer suppresses a fresh game's tutorial. The production build and one focused Edge test passed. The test started two games in the same browser with the old dismissal present, checked that both opened the tutorial, and confirmed refresh after dismissal keeps it closed. Production verification follows the GitHub push and Vercel build.
+
 ## 2026-11-04 — Detailed tutorial and country search
 
 Expanded the tour to eleven individually highlighted controls and replaced its dark window with a light panel, Back navigation and progress. Balance, income and shuffle price reflect the current game. Replaced overlapping country-search outlines with one focus ring around the full search field and styled the list scrollbar.
