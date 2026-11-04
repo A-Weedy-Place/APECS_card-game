@@ -10,6 +10,9 @@ test("entry identity and country popup stay centred and fit phone/desktop",async
   expect(await page.locator(".join-box").evaluate(e=>{const r=e.getBoundingClientRect();return Math.abs(r.x+r.width/2-innerWidth/2)<2||innerWidth>650&&innerHeight<450;})).toBe(true);
   await page.getByRole("button",{name:"Country: Select",exact:true}).click();
   expect(await page.locator(".country-dropdown").evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;})).toBe(true);
+  const search=page.getByRole("searchbox",{name:"Search countries"});
+  await expect(search).toBeFocused();await expect(search).toHaveCSS("outline-style","none");
+  await expect(page.locator(".country-dropdown .country-search")).toHaveCSS("outline-style","solid");
   await page.getByRole("searchbox",{name:"Search countries"}).fill("Pakistan");await expect(page.getByRole("option",{name:"Pakistan",exact:true}).locator("img")).toHaveAttribute("src","/flags/pk.svg");await page.keyboard.press("Escape");
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight+1)).toBe(true);
   await page.screenshot({path:`screenshots/v10-entry-${width}.png`});

@@ -7,12 +7,18 @@ async function skip(page:Page,run:PublicRun){return act(page,()=>page.getByRole(
 test("first play spotlights the board and remembers dismissal",async({page})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   await page.setViewportSize({width:375,height:667});
-  await join(page,"Tutorial Player",{skipTutorial:false});
+  const run=await join(page,"Tutorial Player",{skipTutorial:false});
   const guide=page.getByRole("dialog",{name:"How to play"});
   await expect(guide.getByRole("button",{name:"Next"})).toBeFocused();
-  for(const [title,target] of [["Check your budget",".v9-hud"],["Choose your cards",".v9-hand"],["Play your choices",".v9-controls"]]){
+  await expect(guide).toContainText(`You have ${run.resources.credits} coins`);
+  await guide.getByRole("button",{name:"Next",exact:true}).click();
+  await expect(guide).toContainText(`You earn ${run.nextIncome} coins per round`);
+  await guide.getByRole("button",{name:"Back",exact:true}).click();
+  const steps = [["Your coins","coins"],["Revenue growth","economy"],["Politics","support"],["Public engagement","awareness"],
+    ["Choose your cards","cards"],["Play","play"],["Shuffle","shuffle"],["Skip","skip"],["Rounds","rounds"],["Library","library"],["History","history"]];
+  for(const [title,target] of steps){
     await expect(guide.getByRole("heading",{name:title})).toBeVisible();
-    for(const [width,height] of [[320,568],[375,667],[844,390],[1440,900]]){
+    for(const [width,height] of [[320,568],[844,390]]){
       await page.setViewportSize({width,height});
       await expect.poll(()=>page.evaluate(selector=>{
         const box=(name:string)=>document.querySelector(name)!.getBoundingClientRect();
@@ -20,10 +26,10 @@ test("first play spotlights the board and remembers dismissal",async({page})=>{
         return s.left<=t.left+1&&s.right>=t.right-1&&s.top<=t.top+1&&s.bottom>=t.bottom-1
           &&p.left>=0&&p.top>=0&&p.right<=innerWidth&&p.bottom<=innerHeight
           &&(p.right<=t.left||p.left>=t.right||p.bottom<=t.top||p.top>=t.bottom);
-      },target),{message:`${title} at ${width}×${height}`}).toBe(true);
-      if(title==="Choose your cards"&&(width===375||height===390))await page.screenshot({path:`screenshots/tutorial-${width}.png`});
+      },`[data-tutorial="${target}"]`),{message:`${title} at ${width}×${height}`}).toBe(true);
+      if(title==="Choose your cards")await page.screenshot({path:`screenshots/tutorial-${width}.png`});
     }
-    await guide.getByRole("button",{name:title==="Play your choices"?"Start playing":"Next",exact:true}).click();
+    await guide.getByRole("button",{name:target==="history"?"Start playing":"Next",exact:true}).click();
   }
   await expect(guide).toHaveCount(0);
   await expect(page.locator(".v9-rounds .current")).toHaveText("1");

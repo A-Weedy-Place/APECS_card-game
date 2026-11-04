@@ -2,7 +2,7 @@
 
 **2026-11-04 opening screen and tutorial.** The lobby stacks APECS, COP31 and Cryosphere Pavilion above the form. Its local 2600px Everest and Nuptse photograph uses a portrait crop, dark overlay and heading shadows. Pavel Novak's photo credit and CC BY-SA 2.5 licence are linked from the lobby. The gameplay backdrop still uses the NASA glacier photo described below.
 
-On a browser's first round-one visit, a dismissible three-step spotlight shows the budget and stats, the card hand, and the round controls. The modal explains the actual board without taking game actions. Finish, Skip tutorial or Escape marks it seen in local storage. How to play reopens it during ordinary rounds. The guide runs after the timed game starts, so time spent reading it counts as play time.
+On a browser's first round-one visit, an eleven-step spotlight explains coins, revenue, politics, public engagement, card selection, each round button, rounds, Library and History. The light panel includes Back, Next, Skip tutorial and step progress. Coin balance, income rate and shuffle price come from the current game. Finish, Skip tutorial or Escape marks it seen in local storage. How to play reopens it during ordinary rounds. The guide runs after the timed game starts, so time spent reading it counts as play time. The country picker puts one keyboard focus ring around the search field and uses a dark list scrollbar.
 
 New games use0.10: ten2026 policy rounds preserved, arcade4/7 grants coins only (0–5, bank cap20), faster variant of both courses. Old0.9/earlier attempts retain their scoring and physics. Shared model-family guards cover0.9/0.10; current-version standings remain separate. Politics/revenue/engagement strategy is unchanged.
 

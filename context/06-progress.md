@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-04 — Detailed tutorial and country search
+
+Expanded the tour to eleven individually highlighted controls and replaced its dark window with a light panel, Back navigation and progress. Balance, income and shuffle price reflect the current game. Replaced overlapping country-search outlines with one focus ring around the full search field and styled the list scrollbar.
+
+Verified the production build and two focused Edge cases. All eleven spotlights and panels fit without overlap at 320×568 and 844×390. Browser checks covered Back, skip persistence, reopen, Escape focus restoration, and the country search ring and filtering. Reviewed the light panel in both orientations. Production verification follows the GitHub push and Vercel build.
+
 ## 2026-11-04 — GitHub and Vercel delivery workflow
 
 The user requested that game changes go to GitHub main and Vercel production by default, with focused checks and a live URL for handoff. The current release brings the already verified hosted storage, model worker, 0.10 experience, mountain lobby and first-play tutorial into the GitHub source history. GitHub main and the existing Vercel production project were checked before release. The opening-screen and tutorial implementation already passed the checks recorded below. Production release verification covers Vercel readiness and read-only checks of the public pages and mountain asset.
