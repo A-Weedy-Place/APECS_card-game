@@ -11,16 +11,18 @@ async function main(){
  const browser=await chromium.launch({channel:"msedge",headless:true});const page=await browser.newPage({baseURL:base,viewport:{width:390,height:844}});let id:string|undefined;
  try{
   await page.goto(base);await page.getByLabel("Name",{exact:true}).fill(name);await page.getByRole("button",{name:"Country: Select",exact:true}).click();await page.getByRole("searchbox",{name:"Search countries"}).fill("Antarctica");await page.getByRole("option",{name:"Antarctica",exact:true}).click();
-  const start=page.waitForResponse(r=>r.url().endsWith("/api/runs")&&r.request().method()==="POST");await page.getByRole("button",{name:"Play",exact:true}).click();const session=await(await start).json() as {run:PublicRun;token:string};let run=session.run;id=run.id;
+  const [start]=await Promise.all([page.waitForResponse(r=>r.url().endsWith("/api/runs")&&r.request().method()==="POST"),page.getByRole("button",{name:"Play",exact:true}).click()]);const session=await start.json() as {run:PublicRun;token:string};let run=session.run;id=run.id;
   if(run.rulesVersion!=="prototype-0.11")throw new Error("Expected current published rules.");let automaticPosts=0;page.on("response",r=>{if(r.url().endsWith("/model")&&r.request().method()==="POST")automaticPosts++;});
+  await page.getByRole("button",{name:"Skip tutorial",exact:true}).click();await expect(page.getByRole("dialog",{name:"How to play",exact:true})).not.toBeVisible();
   while(!run.finishedAt){
-   const response=page.waitForResponse(r=>r.url().includes(`/api/runs/${id}/actions`)&&r.request().method()==="POST");
+   const [result]=await Promise.all([page.waitForResponse(r=>r.url().includes(`/api/runs/${id}/actions`)&&r.request().method()==="POST"),(async()=>{
    if(run.specialRound)await page.getByRole("button",{name:"Skip challenge",exact:true}).click();
    else {
     const index=process.argv.includes("--baseline")?-1:run.offers.findIndex(card=>(card as typeof card&{factor?:string}).factor&&card.cost<=run.resources.credits);
     if(index>=0){await page.locator(".v9-select").nth(index).click();await page.locator(".v9-controls").getByRole("button",{name:/^Play/}).click();}else await page.getByRole("button",{name:"Skip",exact:true}).click();
    }
-   const result=await response;if(!result.ok())throw new Error(`Policy request ${result.status()}`);run=await result.json();
+   })()]);if(!result.ok())throw new Error(`Policy request ${result.status()}`);run=await result.json();
+   if(run.lastActions?.some(action=>action.kind==="policy")){await page.locator(".policy-continue").click();await expect(page.locator(".policy-continue")).not.toBeVisible();}
   }
   const stoppedTime=run.elapsedMs,started=Date.now();
   await page.locator(".v9-result h1").filter({hasText:/^\+\d+\.\d°C$/}).waitFor({timeout:240000});
