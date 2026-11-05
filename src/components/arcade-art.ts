@@ -1,4 +1,4 @@
-import { ARCADE_SIZE, iceGate, laneY, type ArcadeVariant, type PuffinState, type ReefState, type Trash } from "@/game/arcade";
+import { ARCADE_SIZE, gateIndices, iceGate, laneY, type ArcadeVariant, type PuffinState, type ReefState, type Trash } from "@/game/arcade";
 type Ctx = CanvasRenderingContext2D;
 const TAU=Math.PI*2;
 function shape(ctx:Ctx,points:number[][],fill:string|CanvasGradient,stroke?:string) {
@@ -20,11 +20,11 @@ export function drawPuffin(ctx:Ctx,state:PuffinState,renderFrame:number,reduced:
   }
   ctx.fillStyle="#3a91ac";ctx.fillRect(0,345,420,75);
   for(let i=0;i<13;i++){const x=((i*43-t*.35+600)%530)-45;line(ctx,[[x,354+i%5*11],[x+23,354+i%5*11]],"#bde8e955",1.5);}
-  for(let i=0;i<22;i++){
+  for(const i of gateIndices(renderFrame,variant)){
     const gate=iceGate(i,renderFrame,variant);if(gate.x< -70||gate.x>435)continue;
     const top=gate.centre-gate.gap/2,bottom=gate.centre+gate.gap/2;
     iceberg(ctx,gate.x,0,gate.width,top,true);iceberg(ctx,gate.x,bottom,gate.width,420-bottom,false);
-    if(!(state.collected&(1<<i))){ellipse(ctx,gate.x+26,gate.centre,14,14,"#f7d77627");star(ctx,gate.x+26,gate.centre,10,"#ffe49a");star(ctx,gate.x+26,gate.centre,4,"#fffbe4");}
+    if(variant==="endless"?state.lastCollected!==i:!(state.collected&(1<<i))){ellipse(ctx,gate.x+26,gate.centre,14,14,"#f7d77627");star(ctx,gate.x+26,gate.centre,10,"#ffe49a");star(ctx,gate.x+26,gate.centre,4,"#fffbe4");}
     else if(!reduced){for(let p=0;p<4;p++)star(ctx,gate.x+26+Math.cos(p*1.6+t*.03)*19,gate.centre+Math.sin(p*1.6+t*.03)*19,3,"#fff1b5aa");}
   }
   if(!reduced)for(let i=1;i<5;i++)ellipse(ctx,98-i*12,y+Math.sin(t*.16-i)*3,3.5-i*.5,2.5,"#f8e9c6"+Math.round((.6-i*.1)*255).toString(16).padStart(2,"0"));

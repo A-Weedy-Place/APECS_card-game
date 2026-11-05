@@ -1,4 +1,15 @@
 {
+  "population-history": {
+    "file": "/art/cards/population-history.webp",
+    "title": "One child policy",
+    "subject": "Historical population-policy sign in Jiangxi, China",
+    "description": "A local government family-planning sign photographed in 2006. Historical illustration for a risky population scenario.",
+    "credit": "Venus / Planet Love, via Wikimedia Commons",
+    "licence": "CC BY 2.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:One_child_policy.jpg",
+    "modification": "Resized to 860 pixels wide and converted to WebP. Cropped to fit cards using CSS."
+  },
   "solar": {
     "file": "/art/cards/solar.webp",
     "title": "Solarpark Jännersdorf",

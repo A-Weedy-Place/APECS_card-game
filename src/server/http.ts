@@ -6,7 +6,7 @@ export function requireAdmin(request: Request) {
   if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_TOKEN && process.env.NODE_ENV !== "development") throw new GameError("Admin access is not configured.", 503);
   if (!validAdminToken(bearer(request))) throw new GameError("Incorrect organiser key. Please log in again.", 401);
 }
-export async function jsonBody(request: Request): Promise<Record<string, unknown>> {
+export async function jsonBody(request: Request, maximum = 4096): Promise<Record<string, unknown>> {
   if (!request.headers.get("content-type")?.includes("application/json")) throw new GameError("Send JSON content.", 415);
   const origin = request.headers.get("origin");
   // Next may construct an internal localhost URL while the browser uses
@@ -14,9 +14,9 @@ export async function jsonBody(request: Request): Promise<Record<string, unknown
   const url = new URL(request.url);
   const expectedOrigin = `${url.protocol}//${request.headers.get("host") ?? url.host}`;
   if (origin && origin !== expectedOrigin) throw new GameError("Cross-origin requests are not allowed.", 403);
-  if (Number(request.headers.get("content-length") ?? 0) > 4096) throw new GameError("Request too large.", 413);
+  if (Number(request.headers.get("content-length") ?? 0) > maximum) throw new GameError("Request too large.", 413);
   const text = await request.text();
-  if (text.length > 4096) throw new GameError("Request too large.", 413);
+  if (text.length > maximum) throw new GameError("Request too large.", 413);
   try {
     const body = JSON.parse(text);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error();

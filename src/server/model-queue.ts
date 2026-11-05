@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { MODEL_PROFILE, MODEL_VERSION, validSettings, type PolicySettings } from "@/game/policy-catalogue";
+import { LEGACY_MODEL_PROFILE, MODEL_PROFILE, MODEL_VERSION, validSettings, type PolicySettings } from "@/game/policy-catalogue";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
 import { evaluationFromRow, type EvaluationRow } from "./evaluation";
 import { transaction } from "./postgres";
@@ -24,7 +24,13 @@ export async function claimModel(){
   const job=(await db.query<Job>("SELECT * FROM apecs.model_jobs WHERE (status='queued' OR (status='running' AND lease_until<$1)) ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED",[now])).rows[0];
   if(!job)return null;
   const settings=JSON.parse(job.settings) as PolicySettings;
-  if(!validSettings(settings)||scenarioKey(settings)!==job.scenario_key)throw new Error("Invalid queued model package.");
+  if(!validSettings(settings))throw new Error("Invalid queued model package.");
+  if(scenarioKey(settings)!==job.scenario_key){
+    if(scenarioKey(settings,LEGACY_MODEL_PROFILE)!==job.scenario_key)throw new Error("Invalid queued model package.");
+    await db.query("UPDATE apecs.model_jobs SET status='failed',lease_token=NULL,lease_until=NULL,updated_at=$2 WHERE scenario_key=$1",[job.scenario_key,date]);
+    await db.query("UPDATE apecs.model_evaluations SET status='failed',error='The simulator was updated. Retry calculation.',updated_at=$2 WHERE scenario_key=$1",[job.scenario_key,date]);
+    return null;
+  }
   const lease=randomBytes(24).toString("hex");
   await db.query("UPDATE apecs.model_jobs SET status='running',attempts=attempts+1,lease_token=$2,lease_until=$3,updated_at=$4 WHERE scenario_key=$1",[job.scenario_key,lease,now+240000,date]);
   await db.query("UPDATE apecs.model_evaluations SET status='running',error=NULL,updated_at=$2 WHERE scenario_key=$1",[job.scenario_key,date]);

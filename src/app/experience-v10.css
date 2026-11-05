@@ -125,3 +125,15 @@
 .policy-receipt li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid #86aeb94d;border-radius:8px;background:#ffffff09;font-size:13px}
 .policy-receipt .policy-mark{font-size:12px}
 .policy-continue{width:100%;margin-top:14px}
+
+.v11-rounds{gap:5px}
+.v11-rounds>span:nth-child(5),.v11-rounds>span:nth-child(9){margin-left:5px}
+.v9-card.risky,.v9-library-card.risky{border-color:#f18b83;background:linear-gradient(145deg,#642e3d,#182c38 65%);box-shadow:0 0 20px #e45d5a55,inset 0 0 16px #ff6c6633;animation:v11-risk-glow 2.2s ease-in-out infinite alternate}
+.v9-card.gold-rare,.v9-library-card.gold-rare{border-color:#ffe4a3;background:linear-gradient(145deg,#68502a,#172f3a 65%);box-shadow:0 0 23px #f9ce7066,inset 0 0 18px #ffe1a333;animation:v11-gold-glow 2.5s ease-in-out infinite alternate}
+@media(max-width:600px){.v9-card h2{font-size:clamp(11px,3.3vw,15px)}}
+.v11-card-badge{position:absolute;right:4px;bottom:4px;padding:3px 5px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.v11-card-badge.risk{background:#742632;color:#ffe8e5}.v11-card-badge.rare{background:#f3d293;color:#403016}
+@keyframes v11-risk-glow{to{box-shadow:0 0 30px #ee74758c,inset 0 0 20px #ff6c6644}}
+@keyframes v11-gold-glow{to{box-shadow:0 0 34px #ffdb8899,inset 0 0 24px #ffdf9155}}
+@media(max-width:600px){.v11-rounds{gap:3px}.v11-rounds>span{width:17px;min-width:17px}.v11-rounds>span:nth-child(5),.v11-rounds>span:nth-child(9){margin-left:2px}}
+@media(prefers-reduced-motion:reduce){.v9-card.risky,.v9-card.gold-rare,.v9-library-card.risky,.v9-library-card.gold-rare{animation:none}}

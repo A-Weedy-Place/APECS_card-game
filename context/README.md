@@ -1,12 +1,13 @@
 # Cryosphere Futures context index
 
-New0.10:67 cards/all19 En-ROADS controls, three-resource HUD, upright phone hand, coin-only accelerating arcade4/7 and automatic temperature/time results. Centred entry with external pavilion identity and high-resolution NASA background. Vercel/Supabase hosts the game; an experimental outbound-only laptop worker evaluates complete scenarios in the public En-ROADS UI. Genuine simulator graphs appear in a full-screen results window, with original branding intact. Not an SDK or event-ready model service. Saved0.9/earlier preserved. Start8/cap20 coins; two browser starts (bypassable soft limit); separate admin/display. Read15-v10-experience-worker.md first. Verified versus pending checks are in Progress.
+New0.11:35 cards (26 model/9 support), all19 En-ROADS controls, nine2026 policy rounds in three stages and two endless coin-only arcade breaks. Model upgrades need an adopted first step and stage2; nuclear choices exclude each other. Red scenario-risk cards and three gold support rares. Upright phone hand and compact three-resource HUD. Read16-v11-stages.md first. Vercel/Supabase hosts the game; an experimental outbound-only laptop worker evaluates complete scenarios in the public En-ROADS UI, now version26.11.0. Completed26.10 caches retain their original results for older saves. Not an SDK or event-ready model service. Start8/cap20 coins; two browser starts (bypassable soft limit); separate admin/display. Verified versus pending checks are in Progress.
 
 | Need | Read | Main code |
 | --- | --- | --- |
-| Current0.10 layout, coin-only arcade, auto results and laptop worker | [0.10 experience](15-v10-experience-worker.md) | `v10.ts`, `experience-v10.css`, `model-queue.ts`, `scripts/model-worker.ts` |
+| Current0.11 stages,35 cards, survival arcade and model profile | [0.11 stages](16-v11-stages.md) | `v11.ts`, `v11-catalogue.ts`, `v11-schedule.ts`, `arcade.ts` |
+| Established layout, auto results and laptop worker | [0.10 experience](15-v10-experience-worker.md) | `experience-v10.css`, `model-queue.ts`, `scripts/model-worker.ts` |
 | Opening screen, Everest photo and first-play spotlight tutorial | [0.10 experience](15-v10-experience-worker.md) | `home.tsx`, `game-tutorial.tsx`, `experience-v10.css` |
-| Every current card, costs, effects and unlock diagrams | [Card guide](../public/card-guide.md) | `policy-catalogue.ts`, `v9.ts` |
+| Every current card, costs, effects and unlock diagrams | [Card guide](../public/card-guide.md) | `v11-catalogue.ts`, `v11.ts` |
 | User intent and non-negotiable requirements | [Brief](00-brief.md) | — |
 | Visual style and accessibility | [Design](01-design.md) | `src/app/globals.css`, `src/components/` |
 | Rounds, cards, income, approval, scoring | [Game rules](02-game.md) | `src/game/` |

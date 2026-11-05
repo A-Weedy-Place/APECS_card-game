@@ -3,31 +3,37 @@ import { Check, X } from "lucide-react";
 import { CONTROLS, controlFor, defaultSettings, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
 import type { Decision, LibraryCard, PublicRun } from "@/game/types";
 import { CardArt } from "./card-art";
+import { v11RoundLabel } from "@/game/v11-schedule";
+import type { PolicyCardV11 } from "@/game/v11-catalogue";
 
-type JournalCard = LibraryCard & PolicyCardV9;
+type JournalCard = LibraryCard & PolicyCardV11;
 type CardStatus = "Adopted" | "Rejected" | "Unplayed";
 const colours: Record<string, string> = {
   Energy: "#f5be5b", Demand: "#78c5fa", Growth: "#bba0f7", Removal: "#73d0b1", "Land & gases": "#a5d66c",
   politics: "#ca9dff", economics: "#eabc5c", awareness: "#5ed5cf",
 };
-const areas = [...new Set(CONTROLS.map(control => control.group))].map(name => ({
-  name, controls: CONTROLS.filter(control => control.group === name),
-}));
+function areasFor(version:string) {
+  const controls=CONTROLS.map(control=>({...control,group:version!=="prototype-0.11"?control.group:
+    control.group==="Energy"?"Energy supply":control.id.startsWith("transport-")?"Transport":control.id.startsWith("buildings-")?"Buildings & industry":control.group==="Removal"?"Carbon dioxide removal":control.group}));
+  return [...new Set(controls.map(control=>control.group))].map(name=>({name,controls:controls.filter(control=>control.group===name)}));
+}
 
 export function policyTint(card: PolicyCardV9): CSSProperties {
   const group = card.factor ? controlFor(card.factor).group : card.category;
   return { "--card-accent": colours[group] ?? "#8ed6cf" } as CSSProperties;
 }
 
-export function PolicyLibrary({ cards, filter, onFilter, onInspect }: {
+export function PolicyLibrary({ version, cards, filter, onFilter, onInspect }: {
+  version:string;
   cards: JournalCard[];
   filter: string;
   onFilter: (value: string) => void;
   onInspect: (card: JournalCard) => void;
 }) {
+  const areas=areasFor(version);
   function tiles(items: JournalCard[]) {
     return <div className="v9-library" data-count={items.length}>{items.map(card => (
-      <button key={card.id} className="v9-library-card" style={policyTint(card)} onClick={() => onInspect(card)}>
+      <button key={card.id} className={`v9-library-card ${card.riskCard?"risky":""} ${card.rarity==="rare"?"gold-rare":""}`} style={policyTint(card)} onClick={() => onInspect(card)}>
         <CardArt card={{ id: card.photo, category: card.category }}/>
         <strong>{card.title}</strong>
       </button>
@@ -66,6 +72,7 @@ export function PolicyHistory({ run, cards, onInspect }: {
   cards: JournalCard[];
   onInspect: (card: JournalCard) => void;
 }) {
+  const areas=areasFor(run.rulesVersion);
   const actions = run.history.filter(action => action.kind !== "round-end");
   const attempted = new Set(actions.filter(action => action.kind === "policy").map(action => action.cardId));
   const adopted = new Set(actions.filter(action => action.kind === "policy" && action.accepted).map(action => action.cardId));
@@ -89,8 +96,9 @@ export function PolicyHistory({ run, cards, onInspect }: {
         {Array.from({ length: run.round }, (_, index) => {
           const round = index + 1;
           const decisions = actions.filter(action => action.planningRound === round);
-          return <section key={round} className="policy-log-round" aria-label={`Round ${round}`}>
-            <h4>Round {round}</h4>
+          const label=run.rulesVersion==="prototype-0.11"?v11RoundLabel(index):String(round);
+          return <section key={round} className="policy-log-round" aria-label={`Round ${label}`}>
+            <h4>{label==="★"?"Arcade ★":`Round ${label}`}</h4>
             {decisions.length ? <ul>{decisions.map(decision => (
               <li key={decision.cardId}>
                 <span className={`policy-mark ${decision.accepted ? "passed" : "rejected"}`}>

@@ -12,7 +12,7 @@ async function main(){
  try{
   await page.goto(base);await page.getByLabel("Name",{exact:true}).fill(name);await page.getByRole("button",{name:"Country: Select",exact:true}).click();await page.getByRole("searchbox",{name:"Search countries"}).fill("Antarctica");await page.getByRole("option",{name:"Antarctica",exact:true}).click();
   const start=page.waitForResponse(r=>r.url().endsWith("/api/runs")&&r.request().method()==="POST");await page.getByRole("button",{name:"Play",exact:true}).click();const session=await(await start).json() as {run:PublicRun;token:string};let run=session.run;id=run.id;
-  if(run.rulesVersion!=="prototype-0.10")throw new Error("Expected current published rules.");let automaticPosts=0;page.on("response",r=>{if(r.url().endsWith("/model")&&r.request().method()==="POST")automaticPosts++;});
+  if(run.rulesVersion!=="prototype-0.11")throw new Error("Expected current published rules.");let automaticPosts=0;page.on("response",r=>{if(r.url().endsWith("/model")&&r.request().method()==="POST")automaticPosts++;});
   while(!run.finishedAt){
    const response=page.waitForResponse(r=>r.url().includes(`/api/runs/${id}/actions`)&&r.request().method()==="POST");
    if(run.specialRound)await page.getByRole("button",{name:"Skip challenge",exact:true}).click();

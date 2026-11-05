@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRun,takeSpecialAction } from "../src/game/engine";
+import { takeSpecialAction } from "../src/game/engine";
+import { v10Create as createRun } from "../src/game/v10";
 import { v9Create,v9Special } from "../src/game/v9";
 import { initialReef,stepReef,replayArcade,iceGate,type Lane } from "../src/game/arcade";
 test("0.10 arcade only accepts coins; 0.9 saved reward choices remain valid",()=>{

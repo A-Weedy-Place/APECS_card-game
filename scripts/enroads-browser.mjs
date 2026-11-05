@@ -3,8 +3,8 @@ import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 
 const controls = JSON.parse(await readFile(new URL('../src/game/enroads-controls.json', import.meta.url), 'utf8'));
-const version = '26.10.0';
-const profile = 'enroads-main-26.10.0-defaults-2026-10-31';
+const version = '26.11.0';
+const profile = 'enroads-main-26.11.0-defaults-2026-11-05';
 let browser;
 
 async function numericAttribute(locator, name) {
@@ -42,7 +42,7 @@ async function evaluate(settings) {
     ])));
 
     await load(`https://en-roads.climateinteractive.org/scenario.html?v=${version}`);
-    if (!(await page.locator('body').innerText()).includes('v26.10')) throw new Error('Unexpected simulator version');
+    if (!(await page.locator('body').innerText()).includes('v26.11')) throw new Error('Unexpected simulator version');
     const initial = await read();
     await Promise.all(controls.map(async c => {
       const handle = handleFor(c);

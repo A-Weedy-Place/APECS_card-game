@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID,createHash } from "node:crypto";
 import { readFileSync,existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { createRun,publicRun,takeAction,takeCardBatch,calculateScore } from "../src/game/engine";
+import { publicRun,takeAction,takeCardBatch,calculateScore } from "../src/game/engine";
+import { v10Create as createRun } from "../src/game/v10";
 import { v9Approval,v9Locked,v9Quote } from "../src/game/v9";
 import { CONTROLS,POLICY_CARDS,POLICY_BY_ID,MODEL_PROFILE,MODEL_VERSION,defaultSettings,settingsFor,validSettings } from "../src/game/policy-catalogue";
 import { compareResults,sameResult,formatTime } from "../src/game/ranking";
@@ -59,7 +60,7 @@ test("owned completed runs alone request evaluation, pending cannot rank, valida
  const a=startRun("Cached One","PK"),b=startRun("Cached Two","GB");assert.throws(()=>modelSettings(a.run.id,a.token),/Finish/);assert.throws(()=>modelSettings(a.run.id,"wrong"),/invalid/);
  // Isolated test database only. Different fixture start times exercise server-measured ordering.
  const fixture=new DatabaseSync(process.env.DATABASE_PATH!);for(const[item,ms]of[[a,90000],[b,30000]]as const){const state=JSON.parse((fixture.prepare("SELECT state FROM runs WHERE id=?").get(item.run.id)as{state:string}).state);state.startedAt=new Date(Date.now()-ms).toISOString();fixture.prepare("UPDATE runs SET state=? WHERE id=?").run(JSON.stringify(state),item.run.id);}fixture.close();
- for(const item of [a,b])for(let n=0;n<10;n++)actOnRun(item.run.id,item.token,"save",n,randomUUID());assert.equal(leaderboard().length,0);
+ for(const item of [a,b])for(let n=0;n<11;n++)actOnRun(item.run.id,item.token,"save",n,randomUUID());assert.equal(leaderboard().length,0);
  const settings=modelSettings(a.run.id,a.token);assert.equal(modelStatus(settings).status,"idle");
  // Synthetic result is strictly a provider-contract fixture, never a real model run or preview record.
  saveModelStatus(settings,"complete",{temperatureC:3.3,modelVersion:MODEL_VERSION,profile:MODEL_PROFILE,provider:"public-ui-experimental",sourceUrl:`https://en-roads.climateinteractive.org/scenario.html?v=${MODEL_VERSION}`,evaluatedAt:new Date().toISOString(),readback:settings});

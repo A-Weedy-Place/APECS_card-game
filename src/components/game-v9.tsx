@@ -4,7 +4,10 @@ import Link from "next/link";
 import { BookOpen, Check, CircleHelp, Clock3, History, LoaderCircle, Shuffle, Volume2, VolumeX, X } from "lucide-react";
 import { api, requestId, SESSION_KEY, type Session } from "@/lib/client";
 import { playSound, setSoundEnabled, soundEnabled } from "@/lib/sound";
-import { controlFor, guideFor, POLICY_BY_ID, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
+import { controlFor, guideFor, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
+import type { PolicyCardV11 } from "@/game/v11-catalogue";
+import { catalogueFor } from "@/game/catalogues";
+import { V11_ROUND_LABELS, v11RoundLabel } from "@/game/v11-schedule";
 import { formatTime } from "@/game/ranking";
 import type { AttemptStatus, Decision, LibraryCard, OfferedCard, PublicRun, SpecialCommand } from "@/game/types";
 import { WorldBackground } from "./game-world";
@@ -15,19 +18,22 @@ import { Flag } from "./country-picker";
 import { ScenarioResults } from "./scenario-results";
 import { GameTutorial } from "./game-tutorial";
 import { PolicyHistory, PolicyLibrary, PolicyRoundResults, policyTint } from "./policy-journal";
-type QuotedPolicy=OfferedCard & PolicyCardV9;
-const resourceNames={economy:"Revenue growth",support:"Politics",awareness:"Public engagement"};
+type QuotedPolicy=OfferedCard & PolicyCardV11;
+const resourceNames={economy:"Revenue growth",support:"Politics",awareness:"Public engagement",credits:"Coins"};
 function Sheet({title,onClose,children,className=""}:{title:string;onClose:()=>void;children:ReactNode;className?:string}){
  const ref=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=ref.current!;dialog.showModal();return()=>dialog.close();},[]);
  return <dialog className={`v9-sheet ${className}`} ref={ref} onCancel={event=>{event.preventDefault();onClose();}} aria-label={title}><header><h2>{title}</h2><button className="icon-button" aria-label={`Close ${title}`} onClick={onClose}><X size={20}/></button></header>{children}</dialog>;
 }
-function Effects({card}:{card:OfferedCard}){return <div className="v9-effects">{(["economy","support","awareness"]as const).filter(key=>card.effects[key]).map(key=><span key={key} className={card.effects[key]!>0?"positive":"negative"}>{resourceNames[key]} {card.effects[key]!>0?"+":""}{card.effects[key]}</span>)}</div>;}
+function Effects({card}:{card:OfferedCard}){return <div className="v9-effects">{(["economy","support","awareness","credits"]as const).filter(key=>card.effects[key]).map(key=><span key={key} className={card.effects[key]!>0?"positive":"negative"}>{resourceNames[key]} {card.effects[key]!>0?"+":""}{card.effects[key]}</span>)}</div>;}
 function Clock({run}:{run:PublicRun}){const[now,setNow]=useState(()=>Date.now());useEffect(()=>{if(run.finishedAt)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[run.finishedAt]);return <span className="v9-clock"><Clock3 size={13}/>{formatTime(run.elapsedMs??Math.max(0,now-Date.parse(run.startedAt)))}</span>;}
 export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Session}){
  const[run,setRun]=useState(initialRun),[chosen,setChosen]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const[inspect,setInspect]=useState<QuotedPolicy|null>(null),[panel,setPanel]=useState<"Library"|"History"|null>(null),[filter,setFilter]=useState("all"),[stat,setStat]=useState<string|null>(null),[sound,setSound]=useState(true),[notice,setNotice]=useState("");
- const [receipt, setReceipt] = useState<{ round: number; outcomes: Decision[] } | null>(null);
+ const [receipt, setReceipt] = useState<{ round: string; outcomes: Decision[] } | null>(null);
+ const modern = run.rulesVersion === "prototype-0.11";
+ const { byId } = catalogueFor(run.rulesVersion);
+ const roundLabels = modern ? V11_ROUND_LABELS : Array.from({length:10},(_,index)=>String(index+1));
  const acting=useRef(false),pending=useRef<{key:string;body:Record<string,unknown>}|null>(null);
  const board = useRef<HTMLElement>(null);
  const [tutorial, setTutorial] = useState(false);
@@ -52,28 +58,28 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
   try{const next=await api<PublicRun>(`/api/runs/${session.id}/actions`,{method:"POST",headers,body:JSON.stringify(pending.current.body)});setRun(next);setChosen([]);setInspect(null);pending.current=null;
    const outcomes = next.lastActions?.filter(action => action.kind !== "round-end") ?? [];
    const policies = outcomes.filter(action => action.kind === "policy");
-   if (Array.isArray(value) && policies.length) setReceipt({ round: next.round, outcomes: policies });
+   if (Array.isArray(value) && policies.length) setReceipt({ round: modern ? v11RoundLabel(next.round - 1) : String(next.round), outcomes: policies });
    setNotice(value === "redraw" ? "Shuffled" : policies.length ? "" : outcomes.length ? "Challenge complete" : "Round skipped");
    playSound(value === "redraw" ? "shuffle" : policies.some(action => !action.accepted) ? "fail" : "pass");
   }catch(err){setError((err as Error).message);}finally{acting.current=false;setBusy(false);}
  }
  function toggle(card:QuotedPolicy){if(busy)return;if(chosen.includes(card.id)){setChosen(chosen.filter(id=>id!==card.id));setInspect(null);setPanel(null);playSound("select");return;}
   if(cost+card.cost>run.resources.credits){setError("Not enough coins for this selection.");return;}
-  if(card.factor&&run.offers.some(c=>chosen.includes(c.id)&&POLICY_BY_ID.get(c.id)?.factor===card.factor)){setError("Choose one stage per factor.");return;}
+  if(card.factor&&run.offers.some(c=>chosen.includes(c.id)&&byId.get(c.id)?.factor===card.factor)){setError("Choose one stage per factor.");return;}
   setChosen([...chosen,card.id]);setInspect(null);setPanel(null);setError("");playSound("select");
  }
  const pips=(value:number)=>Math.max(0,Math.min(7,Math.round(value/100*7)));
  const explanations:Record<string,string>={economy:`+${run.nextIncome} coins each round. Revenue funds the game budget; it is separate from En-ROADS economic growth.`,support:`Reference approval ${run.generalApproval}%. Politics has the strongest effect on approval. Difficult policies and negotiation fatigue consume support.`,awareness:"Public engagement adds a smaller approval boost. At 60+ it also reduces political effort. Fair transition and inclusive participation help build support; they do not directly cool the planet."};
  return <div className="v9-experience"><WorldBackground/><main ref={board} id="main-content" className={`v9-board ${run.specialRound&&!run.finishedAt?"has-arcade":""}`} aria-label="2026 policy planning">
-  <div className="v9-top"><Clock run={run}/><div className="v9-rounds" data-tutorial="rounds" aria-label={`Round ${Math.min(10,run.round+1)} of 10`}>{Array.from({length:10},(_,i)=><span key={i} className={`${i<run.round?"done":""} ${i===run.round?"current":""} ${[3,6].includes(i)?"special":""}`} aria-current={i===run.round?"step":undefined}>{i+1}</span>)}</div><button className="icon-button" aria-label={sound?"Mute sound":"Enable sound"} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
+  <div className="v9-top"><Clock run={run}/><div className={`v9-rounds ${modern?"v11-rounds":""}`} data-tutorial="rounds" aria-label={modern?`Policy round ${v11RoundLabel(run.round)} of 9`:`Round ${Math.min(10,run.round+1)} of 10`}>{roundLabels.map((label,i)=><span key={i} className={`${i<run.round?"done":""} ${i===run.round?"current":""} ${(modern?label==="★":[3,6].includes(i))?"special":""}`} aria-current={i===run.round?"step":undefined}>{label}</span>)}</div><button className="icon-button" aria-label={sound?"Mute sound":"Enable sound"} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
   {run.finishedAt?<TemperatureResult run={run} session={session} onHistory={()=>setPanel("History")} onUpdate={evaluation=>setRun(current=>({...current,modelEvaluation:evaluation}))}/>:<>
    <div className="v9-hud"><div className="v9-resources">{(["economy","support","awareness"]as const).map(key=><div key={key} className="v9-resource"><button data-tutorial={key} onClick={()=>setStat(stat===key?null:key)} aria-expanded={stat===key}><span>{resourceNames[key]}</span><span className={`v9-pips ${pips(run.resources[key])<3?"low":""}`} aria-label={`${pips(run.resources[key])} of 7`}>{Array.from({length:7},(_,i)=><i key={i} className={i<pips(run.resources[key])?"lit":""}/>)}</span><b>{key==="economy"?`+${run.nextIncome}/round`:key==="support"?`${run.generalApproval}%`:""}</b></button>{stat===key&&<p className="v9-stat-tip">{explanations[key]}</p>}</div>)}</div><div className="v9-wallet" data-tutorial="coins" aria-label={`${run.resources.credits} coins`}><ClimateCoin/><strong>{run.resources.credits}</strong></div></div>
    {run.electionMandate&&<div className="v9-mandate">Election mandate · 96%+ approval</div>}
    {run.specialRound?<ArcadeRound key={run.round} run={run} busy={busy} onAction={act} onSkip={()=>void act("save")}/>:<section className="v9-table" aria-label="Offered cards">
     <div className="v9-hand" data-tutorial="cards" key={`${run.round}-${run.redrawsUsed}`}>
-     {(run.offers as QuotedPolicy[]).map(card=><article key={card.id} className={`v9-card ${chosen.includes(card.id)?"selected":""} ${card.wildcard?"wildcard":""}`} style={policyTint(card)}>
+     {(run.offers as QuotedPolicy[]).map(card=><article key={card.id} className={`v9-card ${chosen.includes(card.id)?"selected":""} ${card.wildcard?"wildcard":""} ${card.riskCard?"risky":""} ${card.rarity==="rare"?"gold-rare":""}`} style={policyTint(card)}>
       <button className="v9-card-face" onPointerEnter={()=>playSound("hover")} onClick={()=>{setInspect(card);playSound("tap");}} aria-label={`Inspect ${card.title}`}>
-       <div className="v9-card-art"><CardArt eager card={{id:card.photo,category:card.category}}/><span className="v9-cost">{card.cost}<span className="sr-only"> coins</span></span>{chosen.includes(card.id)&&<span className="v9-check"><Check size={18}/></span>}</div>
+       <div className="v9-card-art"><CardArt eager card={{id:card.photo,category:card.category}}/><span className="v9-cost">{card.cost}<span className="sr-only"> coins</span></span>{chosen.includes(card.id)&&<span className="v9-check"><Check size={18}/></span>}{(card.riskCard||card.rarity==="rare")&&<span className={`v11-card-badge ${card.riskCard?"risk":"rare"}`}>{card.riskCard?"High risk":"Rare"}</span>}</div>
        <small className="v9-family">{card.factor?controlFor(card.factor).label:card.setting}</small><h2>{card.title}</h2><p>{card.setting}</p><span className="v9-odds">{card.approval}% approval</span>
       </button>
       <button className="v9-select" disabled={busy||!chosen.includes(card.id)&&cost+card.cost>run.resources.credits} aria-pressed={chosen.includes(card.id)} onClick={()=>toggle(card)}>{chosen.includes(card.id)?"Selected":"Select"}</button>
@@ -90,10 +96,10 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
   <nav className="v9-tools"><button data-tutorial="library" disabled={busy} onClick={()=>setPanel("Library")}><BookOpen size={17}/> Library</button>{!run.finishedAt&&<button data-tutorial="history" disabled={busy} onClick={()=>setPanel("History")}><History size={17}/> History</button>}{!run.finishedAt&&!run.specialRound&&<button disabled={busy} onClick={()=>{setStat(null);setTutorial(true);}}><CircleHelp size={17} aria-hidden="true"/> How to play</button>}</nav>
  </main>
  {tutorial&&!run.finishedAt&&!run.specialRound&&<GameTutorial board={board} run={run} onClose={closeTutorial}/>}
- {inspect&&<Sheet title={inspect.title} onClose={()=>setInspect(null)}><div className="v9-inspection" style={policyTint(inspect)}><CardArt card={{id:inspect.photo,category:inspect.category}}/><p>{inspect.description}</p>{inspect.factor&&<div className="v9-target"><small>{controlFor(inspect.factor).label}</small><span>{settingLabel(inspect.factor,run.policySettings?.[inspect.factor]??controlFor(inspect.factor).baseline)}</span><b>→ {inspect.setting}</b></div>}<Effects card={inspect}/><div className="v9-quote"><b>{inspect.cost} coins</b><b>{inspect.approval}% approval</b></div>{inspect.requires&&<p className="v9-fine">Requires {POLICY_BY_ID.get(inspect.requires)?.title}</p>}{inspect.approval<100&&<p className="v9-fine">Rejected: lose {inspect.cost-(inspect.rejectionRefund??0)} coins and {inspect.rejectionSupport} politics.</p>}<button className="game-button gold" disabled={busy||!run.offers.some(c=>c.id===inspect.id)||!chosen.includes(inspect.id)&&cost+inspect.cost>run.resources.credits} onClick={()=>toggle(inspect)}>{!run.offers.some(c=>c.id===inspect.id)?"Not in this hand":chosen.includes(inspect.id)?"Deselect":"Select"}</button><details><summary>Model & photo sources</summary><p>{inspect.note}</p>{inspect.factor&&<a href={guideFor(inspect.factor)} target="_blank" rel="noreferrer">En-ROADS control guide ↗</a>}<CardPhotoCaption id={inspect.photo}/></details></div></Sheet>}
+ {inspect&&<Sheet title={inspect.title} onClose={()=>setInspect(null)}><div className="v9-inspection" style={policyTint(inspect)}><CardArt card={{id:inspect.photo,category:inspect.category}}/><p>{inspect.description}</p>{inspect.factor&&<div className="v9-target"><small>{controlFor(inspect.factor).label}</small><span>{settingLabel(inspect.factor,run.policySettings?.[inspect.factor]??controlFor(inspect.factor).baseline)}</span><b>→ {inspect.setting}</b></div>}<Effects card={inspect}/><div className="v9-quote"><b>{inspect.cost} coins</b><b>{inspect.approval}% approval</b></div>{inspect.requires&&<p className="v9-fine">Requires {byId.get(inspect.requires)?.title}</p>}{inspect.approval<100&&<p className="v9-fine">Rejected: lose {inspect.cost-(inspect.rejectionRefund??0)} coins and {inspect.rejectionSupport} politics.</p>}<button className="game-button gold" disabled={busy||!run.offers.some(c=>c.id===inspect.id)||!chosen.includes(inspect.id)&&cost+inspect.cost>run.resources.credits} onClick={()=>toggle(inspect)}>{!run.offers.some(c=>c.id===inspect.id)?"Not in this hand":chosen.includes(inspect.id)?"Deselect":"Select"}</button><details><summary>Model & photo sources</summary><p>{inspect.note}</p>{inspect.factor&&<a href={guideFor(inspect.factor)} target="_blank" rel="noreferrer">En-ROADS control guide ↗</a>}<CardPhotoCaption id={inspect.photo}/></details></div></Sheet>}
  {panel&&!inspect&&<Sheet title={panel} className="policy-journal-sheet" onClose={()=>setPanel(null)}>
    {panel==="Library"
-     ? <PolicyLibrary cards={library} filter={filter} onFilter={setFilter} onInspect={setInspect}/>
+     ? <PolicyLibrary version={run.rulesVersion} cards={library} filter={filter} onFilter={setFilter} onInspect={setInspect}/>
      : <PolicyHistory run={run} cards={library} onInspect={setInspect}/>}
  </Sheet>}
  {receipt&&<Sheet title={`Round ${receipt.round} results`} className="policy-receipt-sheet" onClose={()=>setReceipt(null)}>

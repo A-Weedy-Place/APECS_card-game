@@ -3,29 +3,43 @@
 export const ARCADE_FRAMES = 1080;
 export const ARCADE_SIZE = 420;
 export type ArcadeKind = "flight" | "cleanup";
-export type ArcadeVariant = "classic" | "rising";
+export type ArcadeVariant = "classic" | "rising" | "endless";
 export type Lane = 0 | 1 | 2;
 export type SwimMove = { frame: number; lane: Lane };
 export type ArcadeResult = { frames: number[]; moves?: SwimMove[]; endFrame: number; score: number };
-export type PuffinState = { frame: number; y: number; velocity: number; passed: number; beacons: number; collected: number; dead: boolean };
+export type PuffinState = { frame: number; y: number; velocity: number; passed: number; beacons: number; collected: number; dead: boolean; lastCollected?: number };
 export const initialPuffin = (): PuffinState => ({ frame: 0, y: 210, velocity: -2.8, passed: 0, beacons: 0, collected: 0, dead: false });
 export function iceGate(index: number, frame: number,variant:ArcadeVariant="classic") {
-  const rising=variant==="rising";
-  return { x: 500 + index * 194 - ((rising?2.05:2.15) * frame + (rising?.00155:.00095) * frame * frame), centre: 144 + ((index * 61 + 29) % 130), gap: Math.max(rising?112:132, (rising?176:180) - frame * (rising?.055:.044)), width: 52 };
+  const rising=variant!=="classic";
+  return { x: 500 + index * 194 - gateDistance(frame,variant), centre: 144 + ((index * 61 + 29) % 130), gap: Math.max(variant==="endless"?84:rising?112:132, (rising?176:180) - frame * (rising?.055:.044)), width: 52 };
 }
+function gateDistance(frame:number,variant:ArcadeVariant) {
+  if(variant!=="endless")return (variant==="rising"?2.05:2.15)*frame+(variant==="rising"?.00155:.00095)*frame*frame;
+  const accelerating=Math.min(frame,6000);
+  return 2.05*accelerating+.00155*accelerating*accelerating+Math.max(0,frame-6000)*20.65;
+}
+export function gateIndices(frame:number,variant:ArcadeVariant="classic") {
+  if(variant!=="endless")return Array.from({length:22},(_,index)=>index);
+  const first=Math.max(0,Math.floor((gateDistance(frame,variant)-552)/194));
+  return Array.from({length:5},(_,index)=>first+index);
+}
+export const endlessCoins=(frame:number)=>Math.min(8,Math.floor(frame/240));
 export function stepPuffin(current: PuffinState, flap: boolean,variant:ArcadeVariant="classic"): PuffinState {
-  if (current.dead || current.frame >= ARCADE_FRAMES) return current;
+  if (current.dead || variant!=="endless" && current.frame >= ARCADE_FRAMES) return current;
   const frame = current.frame + 1, velocity = flap ? -4.35 : Math.min(6, current.velocity + .23), y = current.y + velocity;
   let dead = y < 17 || y > 394, passed = 0, collected = current.collected, beacons = current.beacons;
-  for (let index = 0; index < 22; index++) {
+  let lastCollected=current.lastCollected;
+  for (const index of gateIndices(frame,variant)) {
     const gate = iceGate(index, frame,variant);
     if (gate.x + gate.width < 84) passed++;
     if (gate.x < 109 && gate.x + gate.width > 85 && Math.abs(y - gate.centre) > gate.gap / 2 - 11) dead = true;
-    if (!(collected & (1 << index)) && gate.x + 26 <= 98 && iceGate(index, frame - 1,variant).x + 26 > 98 && Math.abs(y - gate.centre) < 25) {
-      collected |= 1 << index; beacons++;
+    if ((variant==="endless"?lastCollected!==index:!(collected & (1 << index))) && gate.x + 26 <= 98 && iceGate(index, frame - 1,variant).x + 26 > 98 && Math.abs(y - gate.centre) < 25) {
+      if(variant==="endless")lastCollected=index;else collected |= 1 << index;
+      beacons++;
     }
   }
-  return { frame, y, velocity, passed, beacons, collected, dead };
+  if(variant==="endless")passed=Math.max(0,Math.ceil((gateDistance(frame,variant)-468)/194));
+  return { frame, y, velocity, passed, beacons, collected, dead,...(variant==="endless"?{lastCollected}:{}) };
 }
 export const puffinScore = (state: PuffinState) => Math.min(100, Math.round(state.passed * 5 + state.beacons * 2 + state.frame / ARCADE_FRAMES * 15));
 
@@ -42,12 +56,13 @@ export function reefSpawn(index: number): Pick<Trash, "lane" | "kind" | "hp"> {
   return { lane, kind, hp: kind === "bag" ? 2 : 1 };
 }
 export function stepReef(current: ReefState, lane: Lane = current.lane,variant:ArcadeVariant="classic"): ReefState {
-  if (current.dead || current.frame >= ARCADE_FRAMES) return current;
+  if (current.dead || variant!=="endless" && current.frame >= ARCADE_FRAMES) return current;
   const frame = current.frame + 1, target = laneY(lane);
-  const state: ReefState = { ...current, frame, lane, y: current.y + Math.max(-8, Math.min(8, target - current.y)), trash: current.trash.map(item => ({ ...item, x: item.x - (variant==="rising"?2+frame*.0032:2.1 + frame * .0019) })), bubbles: current.bubbles.map(bubble => ({ ...bubble, x: bubble.x + 8 })).filter(bubble => bubble.x < 445), splashes: current.splashes.filter(splash => frame - splash.frame < 25) };
+  const speed=variant==="endless"?Math.min(26,2+frame*.0032):variant==="rising"?2+frame*.0032:2.1+frame*.0019;
+  const state: ReefState = { ...current, frame, lane, y: current.y + Math.max(-8, Math.min(8, target - current.y)), trash: current.trash.map(item => ({ ...item, x: item.x - speed })), bubbles: current.bubbles.map(bubble => ({ ...bubble, x: bubble.x + 8 })).filter(bubble => bubble.x < 445), splashes: current.splashes.filter(splash => frame - splash.frame < 25) };
   if (frame >= state.nextSpawn) {
     state.trash.push({ id: state.spawned, x: 452, ...reefSpawn(state.spawned) }); state.spawned++;
-    state.nextSpawn = frame + (variant==="rising"?Math.max(18,60-Math.floor(frame/23)):Math.max(23, 56 - Math.floor(frame / 30)));
+    state.nextSpawn = frame + (variant==="endless"?Math.max(8,60-Math.floor(frame/23)):variant==="rising"?Math.max(18,60-Math.floor(frame/23)):Math.max(23, 56 - Math.floor(frame / 30)));
   }
   if (frame >= state.nextShot) { state.bubbles.push({ x: 99, y: state.y }); state.nextShot = frame + (frame < state.boostUntil ? 8 : 15); }
   const popped = new Set<Bubble>();
@@ -80,10 +95,24 @@ export function stepReef(current: ReefState, lane: Lane = current.lane,variant:A
 }
 export const reefScore = (state: ReefState) => Math.max(0, Math.min(100, Math.round(state.cleared * 4 + state.bestCombo * 2 + state.frame / ARCADE_FRAMES * 20 - state.hits * 3)));
 
-export function validArcadeInput(kind: ArcadeKind, frames: number[], endFrame: number, moves?: SwimMove[]) {
-  if (!Number.isInteger(endFrame) || endFrame < 1 || endFrame > ARCADE_FRAMES || !Array.isArray(frames)) return false;
-  if (kind === "flight") return moves === undefined && frames.length <= 150 && frames.every((frame,index) => Number.isInteger(frame) && frame >= 1 && frame <= endFrame && (!index || frame - frames[index - 1] >= 3));
-  return !frames.length && Array.isArray(moves) && moves.length <= 180 && moves.every((move,index) => move && Number.isInteger(move.frame) && move.frame >= 1 && move.frame <= endFrame && [0,1,2].includes(move.lane) && (!index || move.frame - moves[index - 1].frame >= 3));
+export function validArcadeInput(kind: ArcadeKind, frames: number[], endFrame: number, moves?: SwimMove[],variant:ArcadeVariant="classic") {
+  if (!Number.isSafeInteger(endFrame) || endFrame < 1 || variant!=="endless"&&endFrame > ARCADE_FRAMES || !Array.isArray(frames)) return false;
+  const maximum=variant==="endless"?Math.ceil(endFrame/3):0;
+  if (kind === "flight") return moves === undefined && frames.length <= (maximum||150) && frames.every((frame,index) => Number.isInteger(frame) && frame >= 1 && frame <= endFrame && (!index || frame - frames[index - 1] >= 3));
+  return !frames.length && Array.isArray(moves) && moves.length <= (maximum||180) && moves.every((move,index) => move && Number.isInteger(move.frame) && move.frame >= 1 && move.frame <= endFrame && [0,1,2].includes(move.lane) && (!index || move.frame - moves[index - 1].frame >= 3));
+}
+export function replaySurvival(kind:ArcadeKind,frames:number[],endFrame:number,moves:SwimMove[]=[]):{frame:number;dead:boolean} {
+  if(kind==="flight"){
+    let state=initialPuffin();const flaps=new Set(frames);
+    for(let frame=1;frame<=endFrame&&!state.dead;frame++)state=stepPuffin(state,flaps.has(frame),"endless");
+    return state;
+  }
+  let state=initialReef(),index=0,lane:Lane=1;
+  for(let frame=1;frame<=endFrame&&!state.dead;frame++){
+    if(moves[index]?.frame===frame)lane=moves[index++].lane;
+    state=stepReef(state,lane,"endless");
+  }
+  return state;
 }
 export function replayArcade(kind: ArcadeKind, frames: number[], endFrame: number, moves: SwimMove[] = [],variant:ArcadeVariant="classic") {
   if (kind === "flight") {

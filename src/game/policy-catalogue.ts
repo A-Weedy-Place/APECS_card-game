@@ -1,7 +1,8 @@
 import controls from "./enroads-controls.json";
 import type { Card, Effects } from "./types";
-export const MODEL_VERSION="26.10.0";
-export const MODEL_PROFILE="enroads-main-26.10.0-defaults-2026-10-31";
+export const MODEL_VERSION="26.11.0";
+export const MODEL_PROFILE="enroads-main-26.11.0-defaults-2026-11-05";
+export const LEGACY_MODEL_PROFILE="enroads-main-26.10.0-defaults-2026-10-31";
 export const CONTROLS=controls;
 export type PolicySettings=Record<string,number>;
 export type PolicyCardV9=Card&{factor?:string;target?:number;setting:string;photo:string;branch?:string;wildcard?:boolean};
@@ -73,4 +74,4 @@ export function settingsFor(history:{cardId:string;accepted:boolean;kind?:string
 export function validSettings(value:unknown):value is PolicySettings{
   return !!value&&typeof value==="object"&&!Array.isArray(value)&&Object.keys(value).length===CONTROLS.length&&CONTROLS.every(control=>{const n=(value as PolicySettings)[control.id];return typeof n==="number"&&Number.isFinite(n)&&n>=control.min&&n<=control.max&&(control.id!=="new-zero"||Number.isInteger(n));});
 }
-export const scenarioCanonical=(settings:PolicySettings)=>JSON.stringify({profile:MODEL_PROFILE,settings:CONTROLS.map(control=>[control.id,settings[control.id]])});
+export const scenarioCanonical=(settings:PolicySettings,profile=MODEL_PROFILE)=>JSON.stringify({profile,settings:CONTROLS.map(control=>[control.id,settings[control.id]])});

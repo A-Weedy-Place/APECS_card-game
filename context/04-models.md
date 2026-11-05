@@ -1,5 +1,9 @@
 # Climate models and designer assumptions
 
+## Current0.11 update (2026-11-05)
+
+[0.11 stages](16-v11-stages.md) records the35-card catalogue, exact targets and profile change to En-ROADS26.11.0. The public tool redirects26.10 URLs to26.11; new jobs therefore use a distinct complete-scenario cache profile. Completed26.10 results stay version-pinned and available for older games. Two complete19-control packages were verified against the current public UI, including slider midpoints and endpoints. Population/GDP remain scenario assumptions; social effects and budgets remain design choices. The experimental laptop worker remains necessary for uncached combinations pending supported SDK access.
+
 ## Current0.9 update (2026-10-31)
 
 [0.9 model-game record](13-v9-model-game.md) supersedes the0.8 integration status below for new games. User has no SDK but requested runtime public-UI interaction. Local browser prototype round-tripped mixed/all19-factor scenarios in26.10.0. New0.9 results remain pending until full readback succeeds, then carry actual displayed output and provenance. Not vendor approval, SDK rights or event-ready reliability. Original adapters below remain unchanged for saved games. Social effects and model target choices remain the game's responsibility.

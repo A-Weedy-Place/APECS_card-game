@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { GameError } from "@/game/errors";
 import type { PolicySettings } from "@/game/policy-catalogue";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
-import { modelSettings, modelStatus, saveModelStatus } from "./persistence";
+import { getRun, modelSettings, modelStatus, saveModelStatus } from "./persistence";
 import { enqueueModel } from "./model-queue";
 const runtime=globalThis as typeof globalThis & {copModelQueue?:{active:Set<string>;tail:Promise<void>}};
 export function browserModelEnabled(){return process.env.ENROADS_BROWSER_ENABLED==="1"||(process.env.NODE_ENV==="development"&&process.env.ENROADS_BROWSER_ENABLED!=="0");}
@@ -18,7 +18,7 @@ function evaluate(settings:PolicySettings):Promise<ModelResult>{return new Promi
  child.stdin.on("error",()=>{});child.stdin.end(JSON.stringify(settings));
 });}
 export async function requestModel(id:string,token:string){
- const settings=await modelSettings(id,token),status=await modelStatus(settings);
+ const settings=await modelSettings(id,token),run=await getRun(id,token),status=run.modelEvaluation??await modelStatus(settings);
  if(status.status==="complete")return status;
  if(process.env.DATABASE_URL && process.env.MODEL_QUEUE_ENABLED==="1")return enqueueModel(settings);
  if(process.env.VERCEL||!browserModelEnabled())throw new GameError("Temperature evaluation is not configured on this server. Your game is saved; SDK access is pending.",503);

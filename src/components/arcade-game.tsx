@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { Bird, Fish, Heart, Pause, Play, RotateCcw, Timer, Trophy } from "lucide-react";
-import { ARCADE_FRAMES, ARCADE_SIZE, initialPuffin, initialReef, puffinScore, reefScore, stepPuffin, stepReef, type ArcadeKind, type ArcadeResult, type ArcadeVariant, type Lane, type SwimMove } from "@/game/arcade";
+import { ARCADE_FRAMES, ARCADE_SIZE, endlessCoins, initialPuffin, initialReef, puffinScore, reefScore, stepPuffin, stepReef, type ArcadeKind, type ArcadeResult, type ArcadeVariant, type Lane, type SwimMove } from "@/game/arcade";
 import { drawPuffin, drawReef, prepareCanvas } from "./arcade-art";
 import { playSound } from "@/lib/sound";
 
@@ -11,18 +11,20 @@ export const ARCADE_INFO = {
   cleanup:{title:"Reef Rescue",hint:"Pop trash. Dodge nets. Bubbles fire automatically.",control:"Drag up or down to move · or use ↑ ↓"},
 };
 type Phase="ready"|"countdown"|"playing"|"paused"|"done";
-export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false,practice=false,variant="rising"}:{kind:ArcadeKind;onStart?:()=>Promise<void>;onFinish?:(result:ArcadeResult)=>void;autoStart?:boolean;disabled?:boolean;practice?:boolean;variant?:ArcadeVariant}) {
+export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false,practice=false,variant="endless"}:{kind:ArcadeKind;onStart?:()=>Promise<void>;onFinish?:(result:ArcadeResult)=>void;autoStart?:boolean;disabled?:boolean;practice?:boolean;variant?:ArcadeVariant}) {
   const info=ARCADE_INFO[kind],reduced=useReducedMotion();
+  const endless=variant==="endless";
+  const secondsFor=(frame:number)=>endless?Math.floor(frame/60):Math.max(0,Math.ceil((ARCADE_FRAMES-frame)/60));
   const canvas=useRef<HTMLCanvasElement>(null),stage=useRef<HTMLDivElement>(null),puffin=useRef(initialPuffin()),reef=useRef(initialReef());
   const phaseRef=useRef<Phase>(autoStart?"countdown":"ready"),resumePhase=useRef<"playing"|"countdown">("playing");
   const flaps=useRef<number[]>([]),moves=useRef<SwimMove[]>([]),desiredLane=useRef<Lane>(1),lastTick=useRef(0),accumulator=useRef(0),countdownTime=useRef(2400),countdownValue=useRef(3);
   const previousY=useRef(210),starting=useRef(false),mounted=useRef(true),finishListener=useRef(onFinish),reduceRef=useRef(!!reduced);
   const [phase,setPhase]=useState<Phase>(phaseRef.current),[countdown,setCountdown]=useState(3),[pending,setPending]=useState(false);
-  const [hud,setHud]=useState({score:0,seconds:18,hearts:3,combo:0,boost:false});
+  const [hud,setHud]=useState({score:0,seconds:endless?0:18,hearts:3,combo:0,boost:false});
   useEffect(()=>{finishListener.current=onFinish;reduceRef.current=!!reduced;},[onFinish,reduced]);
   const changePhase=(next:Phase)=>{phaseRef.current=next;setPhase(next);lastTick.current=0;};
   function reset() {
-    puffin.current=initialPuffin();reef.current=initialReef();flaps.current=[];moves.current=[];desiredLane.current=1;previousY.current=210;accumulator.current=0;countdownTime.current=2400;countdownValue.current=3;setCountdown(3);setHud({score:0,seconds:18,hearts:3,combo:0,boost:false});
+    puffin.current=initialPuffin();reef.current=initialReef();flaps.current=[];moves.current=[];desiredLane.current=1;previousY.current=210;accumulator.current=0;countdownTime.current=2400;countdownValue.current=3;setCountdown(3);setHud({score:0,seconds:endless?0:18,hearts:3,combo:0,boost:false});
   }
   async function start() {
     if(starting.current||disabled)return;
@@ -53,8 +55,8 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
     let animation=0;
     const finish=()=>{
       if(phaseRef.current==="done")return;
-      const state=kind==="flight"?puffin.current:reef.current,score=kind==="flight"?puffinScore(puffin.current):reefScore(reef.current);
-      changePhase("done");setHud({score,seconds:Math.max(0,Math.ceil((ARCADE_FRAMES-state.frame)/60)),hearts:3-reef.current.hits,combo:reef.current.combo,boost:false});
+      const state=kind==="flight"?puffin.current:reef.current,score=endless?endlessCoins(state.frame):kind==="flight"?puffinScore(puffin.current):reefScore(reef.current);
+      changePhase("done");setHud({score,seconds:secondsFor(state.frame),hearts:3-reef.current.hits,combo:reef.current.combo,boost:false});
       finishListener.current?.({frames:[...flaps.current],...(kind==="cleanup"?{moves:moves.current.map(move=>({...move}))}:{}),endFrame:Math.max(1,state.frame),score});playSound("pass");
     };
     function draw(now:number) {
@@ -70,7 +72,7 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
           accumulator.current-=1000/60;
           if(kind==="flight"){
             previousY.current=puffin.current.y;const before=puffin.current.beacons;
-            puffin.current=stepPuffin(puffin.current,flaps.current.includes(puffin.current.frame+1),variant);
+            puffin.current=stepPuffin(puffin.current,flaps.current.at(-1)===puffin.current.frame+1,variant);
             if(puffin.current.beacons>before)playSound("select");
           }else{
             const tick=reef.current.frame+1;
@@ -80,8 +82,8 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
             if(reef.current.hits>before.hits)playSound("fail");else if(reef.current.cleared>before.cleared)playSound("tap");
           }
           const state=kind==="flight"?puffin.current:reef.current;
-          if(state.dead||state.frame>=ARCADE_FRAMES)finish();
-          else if(state.frame%6===0)setHud({score:kind==="flight"?puffinScore(puffin.current):reefScore(reef.current),seconds:Math.ceil((ARCADE_FRAMES-state.frame)/60),hearts:3-reef.current.hits,combo:reef.current.combo,boost:reef.current.boostUntil>state.frame});
+          if(state.dead||!endless&&state.frame>=ARCADE_FRAMES)finish();
+          else if(state.frame%6===0)setHud({score:endless?endlessCoins(state.frame):kind==="flight"?puffinScore(puffin.current):reefScore(reef.current),seconds:secondsFor(state.frame),hearts:3-reef.current.hits,combo:reef.current.combo,boost:reef.current.boostUntil>state.frame});
         }
       }
       const state=kind==="flight"?puffin.current:reef.current,alpha=phaseRef.current==="playing"?Math.min(1,accumulator.current/(1000/60)):1;
@@ -109,14 +111,14 @@ export function ArcadeGame({kind,onStart,onFinish,autoStart=false,disabled=false
       if(kind==="flight")flap();else aim(event.clientY);
     }} onPointerMove={event=>{if(kind==="cleanup"&&phaseRef.current==="playing"&&event.currentTarget.hasPointerCapture(event.pointerId))aim(event.clientY);}} onPointerUp={event=>{if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);}}>
       <canvas ref={canvas} width={420} height={420} role="img" aria-label={kind==="flight"?"A puffin flying through an Arctic ice course":"A fish firing bubbles at floating litter; orange nets must be avoided"}/>
-      {phase==="ready"&&<div className="arcade-overlay arcade-intro"><span className="arcade-badge">18 SECOND CHALLENGE</span>{kind==="flight"?<Bird size={32}/>:<Fish size={32}/>}<b>{info.title}</b><small>{kind==="flight"?"Find your rhythm. Keep flying.":"Little fish. Big clean-up."}</small></div>}
+      {phase==="ready"&&<div className="arcade-overlay arcade-intro"><span className="arcade-badge">{endless?"SURVIVE AS LONG AS YOU CAN":"18 SECOND CHALLENGE"}</span>{kind==="flight"?<Bird size={32}/>:<Fish size={32}/>}<b>{info.title}</b><small>{endless?"The longer you survive, the faster it gets.":kind==="flight"?"Find your rhythm. Keep flying.":"Little fish. Big clean-up."}</small></div>}
       {phase==="countdown"&&<div className="arcade-overlay arcade-countdown"><b key={countdown}>{countdown}</b><small>{kind==="flight"?"Get ready to flap":"Get ready to swim"}</small></div>}
       {phase==="paused"&&<div className="arcade-overlay"><b>Paused</b><button type="button" className="game-button gold" onClick={resume}><Play size={18}/> Resume</button></div>}
-      {phase==="done"&&<div className="arcade-overlay arcade-finish"><span className="arcade-badge">{(kind==="flight"?puffin.current:reef.current).frame>=ARCADE_FRAMES?"COURSE COMPLETE":"NICE RUN"}</span><b>{hud.score}<small>/ 100</small></b><p>{kind==="flight"?`${puffin.current.passed} passages · ${puffin.current.beacons} beacons`:`${reef.current.cleared} trash cleared · ${reef.current.bestCombo} best streak`}</p></div>}
+      {phase==="done"&&<div className="arcade-overlay arcade-finish"><span className="arcade-badge">{endless?`${hud.seconds}s SURVIVED`:(kind==="flight"?puffin.current:reef.current).frame>=ARCADE_FRAMES?"COURSE COMPLETE":"NICE RUN"}</span><b>{hud.score}<small>{endless?"coins":"/ 100"}</small></b><p>{kind==="flight"?`${puffin.current.passed} passages · ${puffin.current.beacons} beacons`:`${reef.current.cleared} trash cleared · ${reef.current.bestCombo} best streak`}</p></div>}
       {phase==="playing"&&hud.boost&&<span className="arcade-streak">Bubble burst!</span>}
     </div></div>
     <p className="arcade-controls-hint">{phase==="done"?"":info.control}</p>
     {phase==="ready"?<button className="game-button gold arcade-start" disabled={disabled||pending} onClick={start}><Play size={18}/>{pending?"Starting…":`Start ${info.title}`}</button>:phase==="done"?practice?<button className="game-button gold arcade-start" onClick={start}><RotateCcw size={18}/> Play again</button>:null:kind==="flight"?<button className="arcade-control flap-control" disabled={phase!=="playing"||disabled} onClick={event=>{if(event.detail===0)flap();}} onPointerDown={event=>{event.preventDefault();flap();}} onKeyDown={event=>{if([" ","Enter"].includes(event.key)){event.preventDefault();if(!event.repeat)flap();}}}><Bird size={19}/> Flap</button>:null}
-    <span className="sr-only" role="status">{phase==="done"?`${info.title}: ${hud.score} points out of 100.`:phase==="paused"?"Game paused.":""}</span>
+    <span className="sr-only" role="status">{phase==="done"?`${info.title}: ${endless?`${hud.seconds} seconds survived, ${hud.score} coins`:`${hud.score} points out of 100`}.`:phase==="paused"?"Game paused.":""}</span>
   </div>;
 }

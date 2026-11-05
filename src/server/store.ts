@@ -6,9 +6,11 @@ import { createRun, GameError, publicRun, redactPublicRun, takeAction, takeCardB
 import type { AdminActivity, AdminData, AdminRecord, AttemptStatus, LeaderboardEntry, PublicRun, RunState, SpecialCommand } from "@/game/types";
 import { journalModeFor } from "./database-config";
 import { RULES_VERSION } from "@/game/config";
-import { settingsFor } from "@/game/policy-catalogue";
+import { settingsFor } from "@/game/catalogues";
 import { compareResults } from "@/game/ranking";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
+import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
+import { evaluationFromRow } from "./evaluation";
 
 const databases = globalThis as typeof globalThis & { copDatabases?: Map<string, DatabaseSync> };
 const upgraded = new WeakSet<DatabaseSync>();
@@ -69,7 +71,7 @@ function visibleRun(state: RunState | PublicRun): PublicRun {
   const control = controls(state.id);
   if (control?.deleted) throw new GameError("This game was removed by the organiser.", 410);
   const visible = "phase" in state ? redactPublicRun(state as PublicRun) : publicRun(state as RunState);
-  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?modelStatus(settingsFor(visible.history)):undefined;
+  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?modelStatus(settingsFor(visible.history),visible.rulesVersion!=="prototype-0.11"):undefined;
   return { ...visible, nickname: control?.display_name ?? visible.nickname, country: control?.country ?? visible.country, score: modelRules(visible.rulesVersion)?null:visible.finishedAt ? control?.score_override ?? visible.score : visible.score,
     ...(evaluation?{modelEvaluation:evaluation,...(evaluation.status==="complete"?{projection:{...visible.projection,kind:"model" as const,model:"En-ROADS",version:evaluation.modelVersion!,temperatureC:evaluation.temperatureC,caveat:"Experimental public-UI evaluation of the full scenario. Conditional projection, not a prediction or vendor endorsement."}}:{})}:{}) };
 }
@@ -132,7 +134,7 @@ export function actOnRun(id: string, token: string, cardId: string | string[] | 
 export function leaderboard(includeHidden = false): LeaderboardEntry[] {
   if(!includeHidden){
     const rows=db().prepare("SELECT r.id,r.state,c.display_name,c.country FROM runs r LEFT JOIN run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND r.hidden=0 AND COALESCE(c.deleted,0)=0 AND json_extract(r.state,'$.rulesVersion')=?").all(RULES_VERSION) as (Row & Partial<Control>)[];
-    return rows.flatMap(row=>{const state=JSON.parse(row.state) as RunState;const model=modelStatus(settingsFor(state.history));return model.status!=="complete"?[]:[{id:row.id,nickname:row.display_name??state.nickname,country:row.country??state.country,score:model.temperatureC!,temperatureC:model.temperatureC!,elapsedMs:state.elapsedMs??0,finishedAt:state.finishedAt!,rulesVersion:state.rulesVersion}];}).sort(compareResults).slice(0,100);
+    return rows.flatMap(row=>{const state=JSON.parse(row.state) as RunState;const model=modelStatus(settingsFor(state.history),state.rulesVersion!=="prototype-0.11");return model.status!=="complete"?[]:[{id:row.id,nickname:row.display_name??state.nickname,country:row.country??state.country,score:model.temperatureC!,temperatureC:model.temperatureC!,elapsedMs:state.elapsedMs??0,finishedAt:state.finishedAt!,rulesVersion:state.rulesVersion}];}).sort(compareResults).slice(0,100);
   }
   const rows = db().prepare(`SELECT r.id, r.state, r.hidden, c.display_name, c.country, c.score_override FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id WHERE r.score IS NOT NULL AND COALESCE(c.deleted, 0) = 0 ${includeHidden ? "" : "AND r.hidden = 0 AND json_extract(r.state, '$.rulesVersion') = ?"} ORDER BY COALESCE(c.score_override, r.score) DESC, r.finished_at ASC LIMIT 100`).all(...(includeHidden ? [] : [RULES_VERSION])) as (Row & Partial<Control>)[];
   return rows.map(row => {
@@ -156,13 +158,13 @@ export function adminRecords(page = 1, query = ""): AdminData {
   const total = (db().prepare(`SELECT COUNT(*) AS count FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id ${where}`).get(...args) as { count: number }).count;
   const pages = Math.max(1, Math.ceil(total / 30)); page = Math.max(1, Math.min(pages, Math.floor(page)));
   const rows = db().prepare(`SELECT r.*, c.display_name, c.country, c.score_override, COALESCE(c.deleted,0) AS deleted, COALESCE(c.revision,0) AS control_revision FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id ${where} ORDER BY r.created_at DESC, r.id LIMIT 30 OFFSET ?`).all(...args, (page - 1) * 30) as (Row & Control & { control_revision: number })[];
-  const records: AdminRecord[] = rows.map(row => { const state = JSON.parse(row.state) as RunState; const model=modelRules(state.rulesVersion)&&state.finishedAt?modelStatus(settingsFor(state.history)):null;return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country, score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted, finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion, revision: row.control_revision,elapsedMs:state.elapsedMs,...(model?.status==="complete"?{temperatureC:model.temperatureC}:{}) }; });
+  const records: AdminRecord[] = rows.map(row => { const state = JSON.parse(row.state) as RunState; const model=modelRules(state.rulesVersion)&&state.finishedAt?modelStatus(settingsFor(state.history),state.rulesVersion!=="prototype-0.11"):null;return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country, score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted, finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion, revision: row.control_revision,elapsedMs:state.elapsedMs,...(model?.status==="complete"?{temperatureC:model.temperatureC}:{}) }; });
   return { records, total, page, pages, stats: stats(), entries: leaderboard(true) };
 }
 export function adminRun(id: string) {
   const row = db().prepare("SELECT state FROM runs WHERE id = ?").get(id) as { state: string } | undefined;
   if (!row) throw new GameError("Game not found.", 404);
-  const state=JSON.parse(row.state) as RunState;return {...publicRun(state),...(modelRules(state.rulesVersion)&&state.finishedAt?{modelEvaluation:modelStatus(settingsFor(state.history))}:{})};
+  const state=JSON.parse(row.state) as RunState;return {...publicRun(state),...(modelRules(state.rulesVersion)&&state.finishedAt?{modelEvaluation:modelStatus(settingsFor(state.history),state.rulesVersion!=="prototype-0.11")}:{})};
 }
 export function adminActivity(id: string): AdminActivity {
   const run = adminRun(id);
@@ -213,12 +215,15 @@ export function editRecord(id: string, expectedRevision: number, update: { nickn
 
 export function modelSettings(id:string,token:string){const state=JSON.parse(ownedRun(id,token).state) as RunState;if(!modelRules(state.rulesVersion)||!state.finishedAt)throw new GameError("Finish a new game before evaluating its scenario.",409);return settingsFor(state.history);}
 type EvaluationRow={status:"queued"|"running"|"failed"|"complete";result:string|null;error:string|null;updated_at:string};
-export function modelStatus(settings:Record<string,number>):NonNullable<RunState["modelEvaluation"]>{
+export function modelStatus(settings:Record<string,number>,allowLegacy=false):NonNullable<RunState["modelEvaluation"]>{
  const row=db().prepare("SELECT * FROM model_evaluations WHERE scenario_key=?").get(scenarioKey(settings)) as EvaluationRow|undefined;
- if(!row)return {status:"idle"};
- if((row.status==="running"||row.status==="queued")&&Date.now()-Date.parse(row.updated_at)>(row.status==="running"?240000:1860000))return {status:"failed",error:"Evaluation was interrupted. Retry."};
- if(row.status==="complete"){let result:unknown;try{result=JSON.parse(row.result??"null");}catch{return {status:"failed",error:"Model cache could not be read. Retry."};}if(!validateModelResult(result,settings))return {status:"failed",error:"Model readback did not match this scenario."};return {status:"complete",temperatureC:result.temperatureC,modelVersion:result.modelVersion,sourceUrl:result.sourceUrl,evaluatedAt:result.evaluatedAt,provider:result.provider};}
- return {status:row.status,...(row.error?{error:row.error}:{})};
+ const current=evaluationFromRow(row,settings);
+ if(allowLegacy){
+  const old=db().prepare("SELECT * FROM model_evaluations WHERE scenario_key=?").get(scenarioKey(settings,LEGACY_MODEL_PROFILE)) as EvaluationRow|undefined;
+  const legacy=evaluationFromRow(old,settings,LEGACY_MODEL_PROFILE);
+  if(legacy.status==="complete")return legacy;
+ }
+ return current;
 }
 export function saveModelStatus(settings:Record<string,number>,status:"queued"|"running"|"failed"|"complete",result?:ModelResult,error?:string){
  if(status==="complete"&&!validateModelResult(result,settings))throw new GameError("Invalid model readback.");
