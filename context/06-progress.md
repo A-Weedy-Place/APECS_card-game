@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-05 — Complete card guide
+
+Created `public/card-guide.md` from the current runtime catalogue and effect rules. It lists all 67 cards in grouped Mermaid unlock diagrams and effect tables, including all 19 model paths, support prerequisites, the election wildcard, costs and engagement-dependent political effort. It explains the active-target condition on population/GDP branches and the distinction between prerequisite arrows and resource relationships. Documentation delivery uses GitHub and a public downloadable Markdown asset.
+
+Verified all 67 distinct card nodes and prices against the catalogue, and all 41 prerequisite arrows against their actual `requires` fields. Whitespace check passed. Production asset verification follows the GitHub push and Vercel deployment.
+
 ## 2026-11-05 — Restore score calculation and reuse the browser
 
 The laptop worker had terminated after an unhandled `ECONNABORTED` from a checked-out Postgres client, leaving two jobs queued. Added an active-client error listener and discard on broken connections or failed rollback. The worker now retries temporary result-write errors and reuses a hidden Edge process via an isolated child, with a fresh context for each scenario. It still verifies the full version-pinned public scenario before saving.

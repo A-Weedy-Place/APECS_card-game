@@ -6,6 +6,7 @@ New0.10:67 cards/all19 En-ROADS controls, three-resource HUD, upright phone hand
 | --- | --- | --- |
 | Current0.10 layout, coin-only arcade, auto results and laptop worker | [0.10 experience](15-v10-experience-worker.md) | `v10.ts`, `experience-v10.css`, `model-queue.ts`, `scripts/model-worker.ts` |
 | Opening screen, Everest photo and first-play spotlight tutorial | [0.10 experience](15-v10-experience-worker.md) | `home.tsx`, `game-tutorial.tsx`, `experience-v10.css` |
+| Every current card, costs, effects and unlock diagrams | [Card guide](../public/card-guide.md) | `policy-catalogue.ts`, `v9.ts` |
 | User intent and non-negotiable requirements | [Brief](00-brief.md) | — |
 | Visual style and accessibility | [Design](01-design.md) | `src/app/globals.css`, `src/components/` |
 | Rounds, cards, income, approval, scoring | [Game rules](02-game.md) | `src/game/` |
