@@ -1,15 +1,22 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
+import { countryFlag } from "@/lib/countries";
 
 export function Flag({ code, className = "" }: { code: string; className?: string }) {
+  if (!code) return <svg className={`country-flag blank-flag ${className}`} data-blank-flag="" width="28" height="21" viewBox="0 0 28 21" aria-hidden="true"><rect x=".5" y=".5" width="27" height="20" rx="2" fill="#e5e8e8" stroke="#9aa9ad"/></svg>;
   return <img src={`/flags/${code.toLowerCase()}.svg`} alt="" className={`country-flag ${className}`} width="28" height="21" loading="lazy" decoding="async"/>;
 }
 export function CountryPicker({ countries, value, onChange }: { countries: { code: string; name: string }[]; value: string; onChange: (value: string) => void }) {
   const id = useId(), popup = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null), search = useRef<HTMLInputElement>(null), list = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(""), [open, setOpen] = useState(false), [placement, setPlacement] = useState({ left: 0, top: 0, width: 300, maxHeight: 280 });
+  const [nativePicker, setNativePicker] = useState(false);
+  useEffect(() => {
+    // iPadOS may identify itself as a Mac. Native selects avoid iOS popover/keyboard focus races.
+    setNativePicker(/iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }, []);
   const name = countries.find(c => c.code === value)?.name;
-  const choices = countries.filter(country => `${country.name} ${country.code}`.toLowerCase().includes(query.toLowerCase()));
+  const choices = [{ code: "", name: "Not specified" }, ...countries].filter(country => `${country.name} ${country.code}`.toLowerCase().includes(query.toLowerCase()));
   function position(){
     if(!trigger.current)return;
     const rect=trigger.current.getBoundingClientRect(),viewport=window.visualViewport;
@@ -31,9 +38,19 @@ export function CountryPicker({ countries, value, onChange }: { countries: { cod
     position();
     setQuery(""); setOpen(true); if (typeof popup.current?.showPopover === "function") popup.current.showPopover(); requestAnimationFrame(() => search.current?.focus());
   }
+  if (nativePicker) return <>
+    <input type="hidden" name="country" value={value}/>
+    <div className="country-trigger country-native">
+      <Flag code={value}/><span>{name ?? "Not specified"}</span><ChevronDown size={18} aria-hidden="true"/>
+      <select id="country" aria-label="Country" value={value} autoComplete="country" onChange={event => onChange(event.target.value)}>
+        <option value="">Not specified</option>
+        {countries.map(country => <option key={country.code} value={country.code}>{countryFlag(country.code)} {country.name}</option>)}
+      </select>
+    </div>
+  </>;
   return <>
     <input type="hidden" name="country" value={value}/>
-    <button type="button" id="country" ref={trigger} className="country-trigger" aria-haspopup="listbox" aria-controls={id} aria-expanded={open} aria-label={`Country: ${name ?? "Select"}`} onClick={() => open ? hide() : show()}>{value && <Flag code={value}/>}<span>{name ?? "Select country"}</span><ChevronDown size={18} aria-hidden="true"/></button>
+    <button type="button" id="country" ref={trigger} className="country-trigger" aria-haspopup="listbox" aria-controls={id} aria-expanded={open} aria-label={`Country: ${name ?? "Select"}`} onClick={() => open ? hide() : show()}><Flag code={value}/><span>{name ?? "Not specified"}</span><ChevronDown size={18} aria-hidden="true"/></button>
     <div className="country-dropdown" id={id} ref={popup} popover="auto" style={{ ...placement, display: open ? "flex" : "none" }} onToggle={event => setOpen(event.newState === "open")}>
       <label className="country-search"><Search size={16} aria-hidden="true"/><input ref={search} aria-label="Search countries" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Find country" onKeyDown={event => { if (event.key === "ArrowDown") { event.preventDefault(); list.current?.querySelector<HTMLButtonElement>("[role=option]")?.focus(); } }}/></label>
       <div className="country-options" ref={list} role="listbox" aria-label="Countries" onKeyDown={event => {

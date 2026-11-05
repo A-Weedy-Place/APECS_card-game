@@ -8,6 +8,8 @@ User explicitly chose a **different Supabase account** from the connected neodym
 
 ## Implementation
 
+2026-11-05: names are now reserved at registration and admin rename (see `player-name.ts`). Hosted checks use `pg_advisory_xact_lock` with a signed64-bit hash of the normalized name, inside the existing transaction, before querying original/current names. This is transaction-scoped and compatible with the existing pooler; no DDL, new grants, exposed schema or browser keys. Original/trashed identities remain reserved and pre-existing duplicates are preserved. Verified against the actual restricted hosted role: three simultaneous case/space-equivalent starts produced one success and two409 conflicts; idempotent retry, optional empty country and admin collision rejection also passed. Generated diagnostic rows were identity-checked and cleaned; no attendee records modified.
+
 API calls use async `persistence.ts`. No DATABASE_URL selects the existing SQLite adapter; Vercel refuses to use ephemeral SQLite. `postgres-store.ts` uses a small node-postgres pool and unnamed statements through Supabase's transaction pooler. Short transactions lock one browser allowance for starts and one run for actions/corrections. Idempotent actions, versioned original state, ownership, revisions and validated model-only ranking remain authoritative.
 
 Migration creates private `apecs` tables, RLS and a dedicated `apecs_server` login with only select/insert/update. No schema exposure or browser Supabase keys. Set the runtime role password outside migrations. Use TLS verification; do not disable certificate checks. Migration needs a privileged one-time connection; runtime must use the restricted role. Player photos/minigames remain browser-side.

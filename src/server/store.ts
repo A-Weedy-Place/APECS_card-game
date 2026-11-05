@@ -11,6 +11,7 @@ import { compareResults } from "@/game/ranking";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
 import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
 import { evaluationFromRow } from "./evaluation";
+import { assertPlayerNameAvailable, cleanPlayerName, playerNameKey, type NameRecord } from "./player-name";
 
 const databases = globalThis as typeof globalThis & { copDatabases?: Map<string, DatabaseSync> };
 const upgraded = new WeakSet<DatabaseSync>();
@@ -92,19 +93,28 @@ export function resetAttempts(browserToken: string) {
   return attemptStatus(browserToken);
 }
 export function startRun(nickname: string, country: string, browser?: { token: string; requestId: string }) {
-  if (!browser) return insertRun(nickname, country);
-  const connection = db(), group = hash(browser.token);
+  const connection = db(), group = browser ? hash(browser.token) : "";
   connection.exec("BEGIN IMMEDIATE");
   try {
-    const previous = connection.prepare("SELECT run_id FROM run_attempts WHERE group_hash = ? AND request_id = ?").get(group, browser.requestId) as { run_id: string } | undefined;
-    const token = createHmac("sha256", browser.token).update(browser.requestId).digest("hex");
-    if (previous) { const run = getRun(previous.run_id, token); connection.exec("COMMIT"); return { run, token }; }
-    if (!attemptStatus(browser.token).remaining) throw new GameError("Both plays are used. You can still view your history and the leaderboard.", 403);
-    const result = insertRun(nickname, country, token);
-    connection.prepare("INSERT INTO browser_passes VALUES (?, 1) ON CONFLICT(group_hash) DO UPDATE SET used = used + 1").run(group);
-    connection.prepare("INSERT INTO run_attempts VALUES (?, ?, ?)").run(group, browser.requestId, result.run.id);
+    let token: string | undefined;
+    if (browser) {
+      const previous = connection.prepare("SELECT run_id FROM run_attempts WHERE group_hash = ? AND request_id = ?").get(group, browser.requestId) as { run_id: string } | undefined;
+      token = createHmac("sha256", browser.token).update(browser.requestId).digest("hex");
+      if (previous) { const run = getRun(previous.run_id, token); connection.exec("COMMIT"); return { run, token }; }
+      if (!attemptStatus(browser.token).remaining) throw new GameError("Both plays are used. You can still view your history and the leaderboard.", 403);
+    }
+    const name = cleanPlayerName(nickname);
+    assertPlayerNameAvailable(name, nameRecords());
+    const result = insertRun(name, country, token);
+    if (browser) {
+      connection.prepare("INSERT INTO browser_passes VALUES (?, 1) ON CONFLICT(group_hash) DO UPDATE SET used = used + 1").run(group);
+      connection.prepare("INSERT INTO run_attempts VALUES (?, ?, ?)").run(group, browser.requestId, result.run.id);
+    }
     connection.exec("COMMIT"); return result;
   } catch (error) { connection.exec("ROLLBACK"); throw error; }
+}
+function nameRecords() {
+  return db().prepare("SELECT r.id,json_extract(r.state,'$.nickname') AS original_name,c.display_name FROM runs r LEFT JOIN run_controls c ON c.run_id=r.id").all() as NameRecord[];
 }
 function insertRun(nickname: string, country: string, suppliedToken?: string) {
   const id = randomUUID();
@@ -203,6 +213,10 @@ export function editRecord(id: string, expectedRevision: number, update: { nickn
     const previous = controls(id);
     if ((previous?.revision ?? 0) !== expectedRevision) throw new GameError("Record changed. Refresh before editing.", 409);
     const state = JSON.parse(row.state) as RunState;
+    if (update.nickname !== undefined) {
+      update = { ...update, nickname: cleanPlayerName(update.nickname) };
+      if (playerNameKey(update.nickname!) !== playerNameKey(previous?.display_name ?? state.nickname)) assertPlayerNameAvailable(update.nickname!, nameRecords(), id);
+    }
     if(modelRules(state.rulesVersion)&&update.score!==undefined)throw new GameError("Model temperatures cannot be edited as game points.");
     if (update.score !== undefined && (!state.finishedAt || update.score !== null && (!Number.isInteger(update.score) || update.score < 0 || update.score > 1000))) throw new GameError("Only completed games accept a score correction from 0 to 1000.");
     const next = { display_name: update.nickname ?? previous?.display_name ?? null, country: update.country ?? previous?.country ?? null, score_override: update.score === undefined ? previous?.score_override ?? null : update.score, deleted: update.deleted === undefined ? previous?.deleted ?? 0 : Number(update.deleted), revision: expectedRevision + 1 };

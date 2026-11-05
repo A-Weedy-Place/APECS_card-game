@@ -6,7 +6,7 @@ New0.11:35 cards (26 model/9 support), all19 En-ROADS controls, nine2026 policy 
 | --- | --- | --- |
 | Current0.11 stages,35 cards, survival arcade and model profile | [0.11 stages](16-v11-stages.md) | `v11.ts`, `v11-catalogue.ts`, `v11-schedule.ts`, `arcade.ts` |
 | Established layout, auto results and laptop worker | [0.10 experience](15-v10-experience-worker.md) | `experience-v10.css`, `model-queue.ts`, `scripts/model-worker.ts` |
-| Opening screen, Everest photo and first-play spotlight tutorial | [0.10 experience](15-v10-experience-worker.md) | `home.tsx`, `game-tutorial.tsx`, `experience-v10.css` |
+| Opening screen, iPhone/optional country picker, unique names and tutorial | [Entry and experience](15-v10-experience-worker.md) | `home.tsx`, `country-picker.tsx`, `player-name.ts`, `game-tutorial.tsx` |
 | Every current card, costs, effects and unlock diagrams | [Card guide](../public/card-guide.md) | `v11-catalogue.ts`, `v11.ts` |
 | User intent and non-negotiable requirements | [Brief](00-brief.md) | — |
 | Visual style and accessibility | [Design](01-design.md) | `src/app/globals.css`, `src/components/` |

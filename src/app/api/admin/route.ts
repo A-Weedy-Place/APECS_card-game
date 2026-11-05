@@ -2,6 +2,7 @@ import { GameError } from "@/game/engine";
 import { failure, jsonBody, requireAdmin, respond } from "@/server/http";
 import { adminRecords, adminRun, adminActivity, resetPlayerAttempts, editRecord, moderate, rateLimit } from "@/server/persistence";
 import { COUNTRY_CODES } from "@/lib/countries";
+import { cleanPlayerName } from "@/server/player-name";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -33,11 +34,11 @@ export async function PATCH(request: Request) {
     if (typeof body.id !== "string" || !Number.isInteger(body.revision) || (body.revision as number) < 0) throw new GameError("Invalid record revision.");
     const update: Parameters<typeof editRecord>[2] = {};
     if (body.nickname !== undefined) {
-      if (typeof body.nickname !== "string" || !/^[\p{L}\p{N} ._'’-]{2,24}$/u.test(body.nickname.trim())) throw new GameError("Use a display name of 2–24 characters.");
-      update.nickname = body.nickname.trim();
+      if (typeof body.nickname !== "string" || !/^[\p{L}\p{N} ._'’-]{2,24}$/u.test(cleanPlayerName(body.nickname))) throw new GameError("Use a display name of 2–24 characters.");
+      update.nickname = cleanPlayerName(body.nickname);
     }
     if (body.country !== undefined) {
-      if (typeof body.country !== "string" || !COUNTRY_CODES.includes(body.country)) throw new GameError("Choose a valid country.");
+      if (typeof body.country !== "string" || body.country !== "" && !COUNTRY_CODES.includes(body.country)) throw new GameError("Choose a valid country, or leave it blank.");
       update.country = body.country;
     }
     if (body.score !== undefined) {

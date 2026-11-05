@@ -13,7 +13,7 @@ process.env.DATABASE_PATH = `./data/session-security-${randomUUID()}.sqlite`;
 
 function startWith(predicate: (run: PublicRun) => boolean) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    const candidate = startRun("Package security", "AQ");
+    const candidate = startRun(`Package ${randomUUID().slice(0, 12)}`, "AQ");
     if (predicate(candidate.run)) return candidate;
   }
   throw new Error("Could not construct a suitable offered-hand transaction fixture.");

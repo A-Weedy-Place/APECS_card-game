@@ -4,15 +4,17 @@ import { failure, jsonBody, respond } from "@/server/http";
 import { startRun, rateLimit } from "@/server/persistence";
 import { randomUUID } from "node:crypto";
 import { browserPass, withBrowserPass } from "@/server/browser-pass";
+import { cleanPlayerName } from "@/server/player-name";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const body = await jsonBody(request);
-    const nickname = typeof body.nickname === "string" ? body.nickname.trim().replace(/\s+/g, " ") : "";
-    const country = typeof body.country === "string" ? body.country.toUpperCase() : "";
+    const nickname = typeof body.nickname === "string" ? cleanPlayerName(body.nickname) : "";
+    if (body.country != null && typeof body.country !== "string") throw new GameError("Choose a country from the list, or leave it blank.");
+    const country = typeof body.country === "string" ? body.country.trim().toUpperCase() : "";
     if (!/^[\p{L}\p{N} ._'’-]{2,24}$/u.test(nickname)) throw new GameError("Use a display name of 2–24 letters, numbers or simple punctuation.");
-    if (!COUNTRY_CODES.includes(country)) throw new GameError("Choose a country from the list.");
+    if (country && !COUNTRY_CODES.includes(country)) throw new GameError("Choose a country from the list, or leave it blank.");
     if (body.consent !== true) throw new GameError("Agree to display your name, flag, temperature and time.");
     await rateLimit(`start:${request.headers.get("x-forwarded-for") ?? "local"}`, 120);
     if (body.requestId !== undefined && (typeof body.requestId !== "string" || !/^[a-zA-Z0-9-]{8,80}$/.test(body.requestId))) throw new GameError("Invalid start request.");

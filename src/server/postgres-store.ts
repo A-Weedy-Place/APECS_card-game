@@ -9,6 +9,7 @@ import { scenarioKey, validateModelResult, type ModelResult } from "./model-resu
 import { evaluationFromRow, type EvaluationRow } from "./evaluation";
 import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
 import { pool, transaction } from "./postgres";
+import { assertPlayerNameAvailable, cleanPlayerName, playerNameKey, playerNameLock, type NameRecord } from "./player-name";
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
 export const PLAY_LIMIT=2;
 type DB=Pick<PoolClient,"query">;
@@ -16,6 +17,12 @@ type Row={id:string;token_hash:string;state:string;hidden:number;finished_at:str
 type Update={nickname?:string;country?:string;score?:number|null;hidden?:boolean;deleted?:boolean};
 async function rows<T>(sql:string,args:unknown[]=[],db:DB=pool()):Promise<T[]>{return (await db.query(sql,args)).rows as T[];}
 async function one<T>(sql:string,args:unknown[]=[],db:DB=pool()){return (await rows<T>(sql,args,db))[0];}
+async function checkPlayerName(name:string,db:DB,exceptId?:string){
+  // Transaction-scoped locks also work through the transaction pooler. Different names do not block each other.
+  await db.query("SELECT pg_advisory_xact_lock($1::bigint)",[playerNameLock(name)]);
+  const records=await rows<NameRecord>("SELECT r.id,r.state::jsonb->>'nickname' AS original_name,c.display_name FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id",[],db);
+  assertPlayerNameAvailable(name,records,exceptId);
+}
 async function ownedRun(id:string,token:string,db:DB=pool(),lock=false){
   const row=await one<Row>(`SELECT r.*,c.deleted FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id WHERE r.id=$1${lock?" FOR UPDATE OF r":""}`,[id],db);
   if(!row||!token||!timingSafeEqual(Buffer.from(row.token_hash),Buffer.from(hash(token))))throw new GameError("Run not found or session key invalid.",401);
@@ -43,6 +50,8 @@ export async function startRun(nickname:string,country:string,browser?:{token:st
       if(previous)return {run:await visibleRun(JSON.parse((await ownedRun(previous.run_id,token,db)).state),db),token};
       if(!(await attemptStatus(browser.token,db)).remaining)throw new GameError("Both plays are used. You can still view your history and the leaderboard.",403);
     }
+    nickname=cleanPlayerName(nickname);
+    await checkPlayerName(nickname,db);
     const id=randomUUID(),state=createRun(id,nickname,country,randomBytes(4).readUInt32LE());
     await db.query("INSERT INTO apecs.runs(id,token_hash,state,created_at) VALUES ($1,$2,$3,$4)",[id,hash(token),JSON.stringify(state),state.startedAt]);
     if(browser){const group=hash(browser.token);await db.query("UPDATE apecs.browser_passes SET used=used+1 WHERE group_hash=$1",[group]);await db.query("INSERT INTO apecs.run_attempts VALUES ($1,$2,$3)",[group,browser.requestId,id]);}
@@ -104,6 +113,7 @@ export async function editRecord(id:string,expectedRevision:number,update:Update
   const previous=await one<{display_name:string|null;country:string|null;score_override:number|null;deleted:number;revision:number}>("SELECT * FROM apecs.run_controls WHERE run_id=$1",[id],db);
   if((previous?.revision??0)!==expectedRevision)throw new GameError("Record changed. Refresh before editing.",409);
   const s=JSON.parse(row.state) as RunState;
+  if(update.nickname!==undefined){update={...update,nickname:cleanPlayerName(update.nickname)};if(playerNameKey(update.nickname!)!==playerNameKey(previous?.display_name??s.nickname))await checkPlayerName(update.nickname!,db,id);}
   if(modelRules(s.rulesVersion)&&update.score!==undefined)throw new GameError("Model temperatures cannot be edited as game points.");
   if(update.score!==undefined&&(!s.finishedAt||update.score!==null&&(!Number.isInteger(update.score)||update.score<0||update.score>1000)))throw new GameError("Only completed games accept a score correction from 0 to 1000.");
   const next={display_name:update.nickname??previous?.display_name??null,country:update.country??previous?.country??null,score_override:update.score===undefined?previous?.score_override??null:update.score,deleted:update.deleted===undefined?previous?.deleted??0:Number(update.deleted),revision:expectedRevision+1};
