@@ -4,7 +4,7 @@
 
 Added version 0.13 with three sequential support paths, one support offer per hand, and a preference for cards outside the previous hand. Revenue follows 4 → 5 → 6 → 8 coins in an ordinary upgrade sequence. Removed automatic support drain and approval fatigue. Resource changes on adoption appear as colour-coded arrows with labels. Kept older rule versions and their verified leaderboard eligibility.
 
-Verified the production build and 20 focused unit checks covering revenue progression, no passive decline, previous schedules, model caching and leaderboard administration. Two Edge checks passed for the phone hand, visible income arrow and all 35 cards at 320px. Production verification follows deployment.
+Verified the production build and 20 focused unit checks covering revenue progression, no passive decline, previous schedules, model caching and leaderboard administration. Two Edge checks passed for the phone hand, visible income arrow and all 35 cards at 320px. Live deployment `dpl_6cswzCKzELhnu65YwEu33SfKhTLX` passed the full revenue sequence with 77% reference approval throughout and at most one support card in each hand. The generated record and request receipt were cleaned. A short-phone badge adjustment keeps the price clear next to the new effect hints.
 
 ## 2026-11-08 — permanent admin deletion, twelve-round games and model wait
 

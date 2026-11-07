@@ -142,6 +142,7 @@
 @media(max-width:600px){.v9-card h2{font-size:clamp(11px,3.3vw,15px)}}
 .v11-card-badge{position:absolute;right:4px;bottom:4px;padding:3px 5px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 .v11-card-badge.risk{background:#742632;color:#ffe8e5}.v11-card-badge.rare{background:#f3d293;color:#403016}
+@media(max-width:600px) and (max-height:680px){.v11-card-badge{right:2px;bottom:2px;padding:2px 3px;font-size:8px;letter-spacing:0}}
 @keyframes v11-risk-glow{to{box-shadow:0 0 30px #ee74758c,inset 0 0 20px #ff6c6644}}
 @keyframes v11-gold-glow{to{box-shadow:0 0 34px #ffdb8899,inset 0 0 24px #ffdf9155}}
 @media(max-width:600px){.v11-rounds{gap:2px;min-width:0}.v11-rounds>span{flex:1 1 0;width:auto;min-width:0;max-width:17px;font-size:clamp(8px,2.4vw,10px)}.v11-rounds>span.special+span{margin-left:2px}}
