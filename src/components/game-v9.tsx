@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, Check, CircleHelp, Clock3, History, LoaderCircle, Shuffle, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Check, CircleHelp, Clock3, History, LoaderCircle, Shuffle, Volume2, VolumeX, X } from "lucide-react";
 import { api, requestId, SESSION_KEY, type Session } from "@/lib/client";
 import { playSound, setSoundEnabled, soundEnabled } from "@/lib/sound";
 import { controlFor, guideFor, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
 import type { PolicyCardV11 } from "@/game/v11-catalogue";
 import { catalogueFor } from "@/game/catalogues";
-import { stagedRules, stageSchedule, stageRoundLabel } from "@/game/v11-schedule";
+import { stagedRules, stageSchedule, stageRoundLabel, V13_VERSION } from "@/game/v11-schedule";
 import { formatTime } from "@/game/ranking";
 import type { AttemptStatus, Decision, LibraryCard, OfferedCard, PublicRun, SpecialCommand } from "@/game/types";
 import { WorldBackground } from "./game-world";
@@ -20,6 +20,21 @@ import { GameTutorial } from "./game-tutorial";
 import { PolicyHistory, PolicyLibrary, PolicyRoundResults, policyTint } from "./policy-journal";
 type QuotedPolicy=OfferedCard & PolicyCardV11;
 const resourceNames={economy:"Revenue growth",support:"Politics",awareness:"Public engagement",credits:"Coins"};
+const impactNames = { economy: "Revenue", support: "Political support", awareness: "Public support", credits: "Coins" };
+
+function CardImpacts({ card, income }: { card: OfferedCard; income: number }) {
+  return <div className="v13-card-impacts" id={`impacts-${card.id}`}>
+    {Object.entries(impactNames).map(([key, label]) => {
+      const change = card.effects[key as keyof typeof impactNames];
+      if (!change) return null;
+      const Icon = change > 0 ? ArrowUp : ArrowDown;
+      const text = key === "economy" && card.incomeAfter !== undefined && card.incomeAfter !== income ? `${card.incomeAfter} coins/round` : label;
+      return <span key={key} className={change > 0 ? "positive" : "negative"}>
+        <Icon size={11} aria-hidden="true"/><span className="sr-only">{change > 0 ? "Increases " : "Decreases "}{label}. </span>{text}
+      </span>;
+    })}
+  </div>;
+}
 function Sheet({title,onClose,children,className=""}:{title:string;onClose:()=>void;children:ReactNode;className?:string}){
  const ref=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const dialog=ref.current!;dialog.showModal();return()=>dialog.close();},[]);
@@ -32,6 +47,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  const[inspect,setInspect]=useState<QuotedPolicy|null>(null),[panel,setPanel]=useState<"Library"|"History"|null>(null),[filter,setFilter]=useState("all"),[stat,setStat]=useState<string|null>(null),[sound,setSound]=useState(true),[notice,setNotice]=useState("");
  const [receipt, setReceipt] = useState<{ round: string; outcomes: Decision[] } | null>(null);
  const modern = stagedRules(run.rulesVersion);
+ const balanced = run.rulesVersion === V13_VERSION;
  const schedule = stageSchedule(run.rulesVersion);
  const { byId } = catalogueFor(run.rulesVersion);
  const roundLabels = modern ? schedule.labels : Array.from({length:10},(_,index)=>String(index+1));
@@ -73,7 +89,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
   setChosen([...chosen,card.id]);setInspect(null);setPanel(null);setError("");playSound("select");
  }
  const pips=(value:number)=>Math.max(0,Math.min(7,Math.round(value/100*7)));
- const explanations:Record<string,string>={economy:`+${run.nextIncome} coins each round. Revenue funds the game budget; it is separate from En-ROADS economic growth.`,support:`Reference approval ${run.generalApproval}%. Politics has the strongest effect on approval. Difficult policies and negotiation fatigue consume support.`,awareness:"Public engagement adds a smaller approval boost. At 60+ it also reduces political effort. Fair transition and inclusive participation help build support; they do not directly cool the planet."};
+ const explanations:Record<string,string>={economy:`+${run.nextIncome} coins each round. Game revenue is separate from En-ROADS economic growth.${balanced ? " The three upgrades can raise income from 4 to 5, 6 and 8 coins." : ""}`,support:`Reference approval ${run.generalApproval}%. Politics has the strongest effect on approval. ${balanced ? "Cards with an effect arrow can change political support." : "Difficult policies and negotiation fatigue consume support."}`,awareness:balanced ? "Public engagement adds a smaller approval boost. Cards with a public support arrow can raise or lower it." : "Public engagement adds a smaller approval boost. At 60+ it also reduces political effort."};
  return <div className="v9-experience"><WorldBackground/><main ref={board} id="main-content" className={`v9-board ${run.specialRound&&!run.finishedAt?"has-arcade":""}`} aria-label="2026 policy planning">
   <div className="v9-top"><Clock run={run}/><div className={`v9-rounds ${modern?"v11-rounds":""}`} data-tutorial="rounds" aria-label={roundDescription}>{roundLabels.map((label,i)=><span key={i} className={`${i<run.round?"done":""} ${i===run.round?"current":""} ${(modern?label==="★":[3,6].includes(i))?"special":""}`} aria-current={i===run.round?"step":undefined}>{label}</span>)}</div><button className="icon-button" aria-label={sound?"Mute sound":"Enable sound"} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
   {run.finishedAt?<TemperatureResult run={run} session={session} onHistory={()=>setPanel("History")} onUpdate={evaluation=>setRun(current=>({...current,modelEvaluation:evaluation}))}/>:<>
@@ -82,9 +98,9 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
    {run.specialRound?<ArcadeRound key={run.round} run={run} busy={busy} onAction={act} onSkip={()=>void act("save")}/>:<section className="v9-table" aria-label="Offered cards">
     <div className="v9-hand" data-tutorial="cards" key={`${run.round}-${run.redrawsUsed}`}>
      {(run.offers as QuotedPolicy[]).map(card=><article key={card.id} className={`v9-card ${chosen.includes(card.id)?"selected":""} ${card.wildcard?"wildcard":""} ${card.riskCard?"risky":""} ${card.rarity==="rare"?"gold-rare":""}`} style={policyTint(card)}>
-      <button className="v9-card-face" onPointerEnter={()=>playSound("hover")} onClick={()=>{setInspect(card);playSound("tap");}} aria-label={`Inspect ${card.title}`}>
+      <button className="v9-card-face" onPointerEnter={()=>playSound("hover")} onClick={()=>{setInspect(card);playSound("tap");}} aria-label={`Inspect ${card.title}`} aria-describedby={balanced ? `impacts-${card.id}` : undefined}>
        <div className="v9-card-art"><CardArt eager card={{id:card.photo,category:card.category}}/><span className="v9-cost">{card.cost}<span className="sr-only"> coins</span></span>{chosen.includes(card.id)&&<span className="v9-check"><Check size={18}/></span>}{(card.riskCard||card.rarity==="rare")&&<span className={`v11-card-badge ${card.riskCard?"risk":"rare"}`}>{card.riskCard?"High risk":"Rare"}</span>}</div>
-       <small className="v9-family">{card.factor?controlFor(card.factor).label:card.setting}</small><h2>{card.title}</h2><p>{card.setting}</p><span className="v9-odds">{card.approval}% approval</span>
+       <div className="v9-card-meta"><small className="v9-family">{card.factor ? controlFor(card.factor).label : `${card.setting}${balanced ? ` · ${card.tier}/3` : ""}`}</small>{balanced && <CardImpacts card={card} income={run.nextIncome}/>}</div><h2>{card.title}</h2><p>{card.setting}</p><span className="v9-odds">{card.approval}% approval</span>
       </button>
       <button className="v9-select" disabled={busy||!chosen.includes(card.id)&&cost+card.cost>run.resources.credits} aria-pressed={chosen.includes(card.id)} onClick={()=>toggle(card)}>{chosen.includes(card.id)?"Selected":"Select"}</button>
      </article>)}
@@ -100,7 +116,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
   <nav className="v9-tools"><button data-tutorial="library" disabled={busy} onClick={()=>setPanel("Library")}><BookOpen size={17}/> Library</button>{!run.finishedAt&&<button data-tutorial="history" disabled={busy} onClick={()=>setPanel("History")}><History size={17}/> History</button>}{!run.finishedAt&&!run.specialRound&&<button disabled={busy} onClick={()=>{setStat(null);setTutorial(true);}}><CircleHelp size={17} aria-hidden="true"/> How to play</button>}</nav>
  </main>
  {tutorial&&!run.finishedAt&&!run.specialRound&&<GameTutorial board={board} run={run} onClose={closeTutorial}/>}
- {inspect&&<Sheet title={inspect.title} onClose={()=>setInspect(null)}><div className="v9-inspection" style={policyTint(inspect)}><CardArt card={{id:inspect.photo,category:inspect.category}}/><p>{inspect.description}</p>{inspect.factor&&<div className="v9-target"><small>{controlFor(inspect.factor).label}</small><span>{settingLabel(inspect.factor,run.policySettings?.[inspect.factor]??controlFor(inspect.factor).baseline)}</span><b>→ {inspect.setting}</b></div>}<Effects card={inspect}/><div className="v9-quote"><b>{inspect.cost} coins</b><b>{inspect.approval}% approval</b></div>{inspect.requires&&<p className="v9-fine">Requires {byId.get(inspect.requires)?.title}</p>}{inspect.approval<100&&<p className="v9-fine">Rejected: lose {inspect.cost-(inspect.rejectionRefund??0)} coins and {inspect.rejectionSupport} politics.</p>}<button className="game-button gold" disabled={busy||!run.offers.some(c=>c.id===inspect.id)||!chosen.includes(inspect.id)&&cost+inspect.cost>run.resources.credits} onClick={()=>toggle(inspect)}>{!run.offers.some(c=>c.id===inspect.id)?"Not in this hand":chosen.includes(inspect.id)?"Deselect":"Select"}</button><details><summary>Model & photo sources</summary><p>{inspect.note}</p>{inspect.factor&&<a href={guideFor(inspect.factor)} target="_blank" rel="noreferrer">En-ROADS control guide ↗</a>}<CardPhotoCaption id={inspect.photo}/></details></div></Sheet>}
+ {inspect&&<Sheet title={inspect.title} onClose={()=>setInspect(null)}><div className="v9-inspection" style={policyTint(inspect)}><CardArt card={{id:inspect.photo,category:inspect.category}}/><p>{inspect.description}</p>{inspect.factor&&<div className="v9-target"><small>{controlFor(inspect.factor).label}</small><span>{settingLabel(inspect.factor,run.policySettings?.[inspect.factor]??controlFor(inspect.factor).baseline)}</span><b>→ {inspect.setting}</b></div>}<Effects card={inspect}/>{inspect.incomeAfter !== undefined && <p className="v9-fine">Income if adopted on its own: {inspect.incomeAfter} coins per round.</p>}<div className="v9-quote"><b>{inspect.cost} coins</b><b>{inspect.approval}% approval</b></div>{inspect.requires&&<p className="v9-fine">Requires {byId.get(inspect.requires)?.title}</p>}{inspect.approval<100&&<p className="v9-fine">Rejected: lose {inspect.cost-(inspect.rejectionRefund??0)} coins{inspect.rejectionSupport ? ` and ${inspect.rejectionSupport} politics` : ""}.</p>}<button className="game-button gold" disabled={busy||!run.offers.some(c=>c.id===inspect.id)||!chosen.includes(inspect.id)&&cost+inspect.cost>run.resources.credits} onClick={()=>toggle(inspect)}>{!run.offers.some(c=>c.id===inspect.id)?"Not in this hand":chosen.includes(inspect.id)?"Deselect":"Select"}</button><details><summary>Model & photo sources</summary><p>{inspect.note}</p>{inspect.factor&&<a href={guideFor(inspect.factor)} target="_blank" rel="noreferrer">En-ROADS control guide ↗</a>}<CardPhotoCaption id={inspect.photo}/></details></div></Sheet>}
  {panel&&!inspect&&<Sheet title={panel} className="policy-journal-sheet" onClose={()=>setPanel(null)}>
    {panel==="Library"
      ? <PolicyLibrary version={run.rulesVersion} cards={library} filter={filter} onFilter={setFilter} onInspect={setInspect}/>

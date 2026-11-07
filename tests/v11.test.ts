@@ -66,8 +66,8 @@ test("three stages have nine decisions and two coin-only arcade stops", () => {
   assert.ok(validSettings(settingsFor(state.history)));
 });
 
-test("new games play four policy rounds per stage and finish after both arcade breaks", () => {
-  let state = createRun("current", "Player", "PK", 1);
+test("saved 0.12 games play four policy rounds per stage and finish after both arcade breaks", () => {
+  let state = v11Create("current", "Player", "PK", 1, V12_VERSION);
   assert.equal(state.rulesVersion, V12_VERSION);
   const visited: string[] = [];
   while (!state.finishedAt) {
@@ -139,7 +139,7 @@ test("new model results stay separate while saved 26.10 results remain available
   const old=startRun("Old Player","AQ"),current=startRun("Current Player","AQ");
   const settings=defaultSettings(),now=new Date().toISOString(),db=new DatabaseSync(process.env.DATABASE_PATH!);
   try{
-    for(const [session,state] of [[old,v10Create(old.run.id,"Old Player","AQ",1)],[current,fresh()]] as const){
+    for(const [session,state] of [[old,v10Create(old.run.id,"Old Player","AQ",1)],[current,createRun(current.run.id,"Current Player","AQ",1)]] as const){
       state.id=session.run.id;state.finishedAt=now;state.round=yearsFor(state.rulesVersion).length;
       db.prepare("UPDATE runs SET state=?,finished_at=? WHERE id=?").run(JSON.stringify(state),now,session.run.id);
     }

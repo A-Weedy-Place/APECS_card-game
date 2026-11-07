@@ -2,10 +2,9 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { PoolClient } from "pg";
 import { createRun, GameError, publicRun, redactPublicRun, takeAction, takeCardBatch, takeSpecialAction } from "@/game/engine";
 import type { AdminActivity, AdminData, AdminRecord, AttemptStatus, LeaderboardEntry, PublicRun, RunState, SpecialCommand } from "@/game/types";
-import { RULES_VERSION } from "@/game/config";
 import { settingsFor } from "@/game/catalogues";
 import { orderLeaderboard } from "@/game/ranking";
-import { V11_VERSION, stagedRules } from "@/game/v11-schedule";
+import { STAGED_VERSIONS, stagedRules } from "@/game/v11-schedule";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
 import { evaluationFromRow, type EvaluationRow } from "./evaluation";
 import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
@@ -78,7 +77,7 @@ export async function actOnRun(id:string,token:string,cardId:string|string[]|Spe
   });
 }
 export async function leaderboard(includeHidden=false):Promise<LeaderboardEntry[]>{
-  const found=await rows<Row>(`SELECT r.*,c.display_name,c.country,c.score_override,c.manual_rank FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND COALESCE(c.deleted,0)=0 ${includeHidden?"AND r.score IS NOT NULL":"AND r.hidden=0 AND r.state::jsonb->>'rulesVersion' IN ($1,$2)"}`,includeHidden?[]:[RULES_VERSION,V11_VERSION]);
+  const found=await rows<Row>(`SELECT r.*,c.display_name,c.country,c.score_override,c.manual_rank FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND COALESCE(c.deleted,0)=0 ${includeHidden?"AND r.score IS NOT NULL":"AND r.hidden=0 AND r.state::jsonb->>'rulesVersion'=ANY($1::text[])"}`,includeHidden?[]:[STAGED_VERSIONS]);
   if(includeHidden)return found.map(row=>{const s=JSON.parse(row.state) as RunState;return {id:row.id,nickname:row.display_name??s.nickname,country:row.country??s.country,score:row.score_override??s.score!,finishedAt:s.finishedAt!,rulesVersion:s.rulesVersion,hidden:!!row.hidden};}).sort((a,b)=>b.score-a.score).slice(0,100);
   const states=found.map(row=>JSON.parse(row.state) as RunState),keys=states.map(s=>scenarioKey(settingsFor(s.history)));
   const cache=keys.length?await rows<EvaluationRow&{scenario_key:string}>("SELECT * FROM apecs.model_evaluations WHERE scenario_key=ANY($1::text[])",[keys]):[];

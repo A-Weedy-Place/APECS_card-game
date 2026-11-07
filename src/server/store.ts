@@ -8,7 +8,7 @@ import { journalModeFor } from "./database-config";
 import { RULES_VERSION } from "@/game/config";
 import { settingsFor } from "@/game/catalogues";
 import { orderLeaderboard } from "@/game/ranking";
-import { V11_VERSION, stagedRules } from "@/game/v11-schedule";
+import { STAGED_VERSIONS, stagedRules } from "@/game/v11-schedule";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
 import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
 import { evaluationFromRow } from "./evaluation";
@@ -171,7 +171,8 @@ export function actOnRun(id: string, token: string, cardId: string | string[] | 
 }
 export function leaderboard(includeHidden = false): LeaderboardEntry[] {
   if(!includeHidden){
-    const rows = db().prepare("SELECT r.id,r.state,c.display_name,c.country,c.manual_rank FROM runs r LEFT JOIN run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND r.hidden=0 AND COALESCE(c.deleted,0)=0 AND json_extract(r.state,'$.rulesVersion') IN (?,?)").all(RULES_VERSION, V11_VERSION) as (Row & Partial<Control>)[];
+    const placeholders = STAGED_VERSIONS.map(() => "?").join(",");
+    const rows = db().prepare(`SELECT r.id,r.state,c.display_name,c.country,c.manual_rank FROM runs r LEFT JOIN run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND r.hidden=0 AND COALESCE(c.deleted,0)=0 AND json_extract(r.state,'$.rulesVersion') IN (${placeholders})`).all(...STAGED_VERSIONS) as (Row & Partial<Control>)[];
     const entries = rows.flatMap(row => {
       const state = JSON.parse(row.state) as RunState;
       const model = modelStatus(settingsFor(state.history));

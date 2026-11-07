@@ -128,6 +128,12 @@
 .policy-continue{width:100%;margin-top:14px}
 
 .v11-rounds{gap:5px}
+.v9-card-meta{flex-shrink:0;min-width:0}
+.v13-card-impacts{display:grid;justify-items:center;gap:2px;margin:2px 0}
+.v13-card-impacts:empty{display:none}
+.v13-card-impacts>span{display:flex;align-items:center;gap:2px;font-size:clamp(9px,2.5vw,12px);line-height:1.2;font-weight:700}
+.v13-card-impacts .positive{color:#9ce9c8}
+.v13-card-impacts .negative{color:#ffb3a3}
 .admin-table .record-reset{display:block;white-space:nowrap;min-height:36px;margin-top:5px;padding:4px 8px}
 .temperature-table td>small{display:block;font-size:.65em}
 .v11-rounds>span.special+span{margin-left:5px}

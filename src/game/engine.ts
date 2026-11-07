@@ -12,7 +12,7 @@ import { v9Rules,v9Create,v9Public,v9Action,v9Batch,v9Special,v9Income,v9Approva
 import { POLICY_BY_ID } from "./policy-catalogue";
 import { v10Create, v10Special } from "./v10";
 import { v11Create, v11Action, v11Batch, v11Public, v11Special, v11Approval, v11Effects, v11Offers } from "./v11";
-import { V11_BY_ID } from "./v11-catalogue";
+import { stagedCatalogue } from "./catalogues";
 import { GameError } from "./errors";
 import { v4Rules, v4Approval, v4Cost, v4Income, v4Transition, v4Mandate, v4Refund, v4Effects, v4Offers, v4Create, v4Score, v4Action, v4Public } from "./v4";
 import { v5Rules, v5Approval, v5Cost, v5Income, v5Transition, v5Mandate, v5Refund, v5Effects, v5Offers, v5Create, v5Score, v5Action, v5Public, v5Batch } from "./v5";
@@ -24,7 +24,7 @@ const cardsFor = (state: RunState) => strategicRules(state) ? CARDS : modernRule
 const cardFor = (state: RunState, id: string) => (strategicRules(state) ? CARD_BY_ID : modernRules(state) ? V2_CARD_BY_ID : LEGACY_CARD_BY_ID).get(id);
 
 export function approvalFor(state: RunState, card: Card) {
-  if(stagedRules(state.rulesVersion))return v11Approval(state,V11_BY_ID.get(card.id)!);
+  if(stagedRules(state.rulesVersion))return v11Approval(state,stagedCatalogue(state.rulesVersion).byId.get(card.id)!);
   if(v9Rules(state))return v9Approval(state,POLICY_BY_ID.get(card.id)!);
   if (scarceBudgetRules(state)) return v7Approval(state, card);
   if (v6Rules(state)) return v5Approval(state, card);
@@ -77,7 +77,7 @@ export function mandateCostFor(state: RunState, card: Card) {
 export function refundFor(state: RunState, cost: number) { return scarceBudgetRules(state) ? v4Refund(state, cost) : v5Rules(state) || v6Rules(state) ? v5Refund(state, cost) : v4Rules(state) ? v4Refund(state, cost) : Math.floor(cost * (strategicRules(state) ? (hasPerk(state, "justice") ? .75 : .5) : (hasPerk(state, "justice") ? .9 : .75))); }
 
 export function effectsFor(state: RunState, card: Card): Effects {
-  if(stagedRules(state.rulesVersion))return v11Effects(state,V11_BY_ID.get(card.id)!);
+  if(stagedRules(state.rulesVersion))return v11Effects(state,stagedCatalogue(state.rulesVersion).byId.get(card.id)!);
   if(v9Rules(state))return v9Effects(state,POLICY_BY_ID.get(card.id)!);
   if (scarceBudgetRules(state)) return v7Effects(state, card);
   if (v6Rules(state)) return v5Effects(state, card);

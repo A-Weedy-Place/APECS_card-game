@@ -1,11 +1,11 @@
 import { test,expect } from "@playwright/test";
 import type { PublicRun } from "../../src/game/types";
 
-test("0.12 has twelve numbered rounds, two stars, risk cards and server-replayed survival rewards",async({page})=>{
+test("current game has twelve numbered rounds, two stars, risk cards and server-replayed survival rewards",async({page})=>{
  await page.setViewportSize({width:390,height:844});
  const response=await page.request.post("/api/runs",{data:{nickname:"Survival Test",country:"AQ",consent:true}});
  const session=await response.json() as {run:PublicRun;token:string};
- expect(session.run.rulesVersion).toBe("prototype-0.12");expect(session.run.library).toHaveLength(35);
+ expect(session.run.rulesVersion).toBe("prototype-0.13");expect(session.run.library).toHaveLength(35);
  await page.goto("/");const {SESSION_KEY}=await import("../../src/lib/client");
  await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify({id:s.run.id,token:s.token})),{key:SESSION_KEY,s:session});
  let run=session.run;

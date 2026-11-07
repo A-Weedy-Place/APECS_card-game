@@ -2,7 +2,9 @@ import { GameError } from "./errors";
 import { randomAt } from "./random";
 import { defaultSettings, MODEL_VERSION } from "./policy-catalogue";
 import { V11_BY_ID, V11_CARDS, v11Settings, type PolicyCardV11 } from "./v11-catalogue";
-import { V11_VERSION, stageArcade, stageNumber, stageSchedule } from "./v11-schedule";
+import { V11_VERSION, V13_VERSION, stageArcade, stageNumber, stageSchedule } from "./v11-schedule";
+import { stagedCatalogue } from "./catalogues";
+import { REVENUE_FLOORS, SUPPORT_ROTATION } from "./v13-catalogue";
 import { phaseForVersion } from "./config";
 import { endlessCoins, replaySurvival, validArcadeInput } from "./arcade";
 import { v9Create, v9Income } from "./v9";
@@ -10,6 +12,13 @@ import type { Decision, Effects, OfferedCard, PublicRun, RunState, SpecialComman
 
 const clamp = (value: number, max = 100) => Math.max(0, Math.min(max, value));
 const adopted = (state: RunState, id: string) => state.history.some(action => action.kind === "policy" && action.accepted && action.cardId === id);
+const balanced = (state: RunState) => state.rulesVersion === V13_VERSION;
+const revenueIncome = (economy: number) => 4 + Math.floor(clamp(economy) / 25);
+const incomeFor = (state: RunState) => balanced(state) ? revenueIncome(state.resources.economy) : v9Income(state);
+
+function completedPolicyRounds(state: RunState) {
+  return state.history.filter(action => action.kind === "round-end" && !stageArcade(state.rulesVersion, action.planningRound! - 1)).length;
+}
 
 export function v11Locked(state: RunState, card: PolicyCardV11): string | null {
   if (!card.repeatable && adopted(state, card.id)) return "Already adopted";
@@ -22,32 +31,56 @@ export function v11Locked(state: RunState, card: PolicyCardV11): string | null {
 export function v11Approval(state: RunState, card: PolicyCardV11) {
   if (card.role === "enabler") return 100;
   if (state.electionMandate && card.rarity !== "rare") return Math.min(99, Math.round(96 + state.resources.support * .03));
-  const policyRounds = state.history.filter(action => action.kind === "round-end" && !stageArcade(state.rulesVersion, action.planningRound! - 1)).length;
-  return Math.round(Math.max(5, Math.min(95, 47 + state.resources.support * .55 + state.resources.awareness * .12 - card.difficulty - policyRounds * 2)));
+  const fatigue = balanced(state) ? 0 : completedPolicyRounds(state) * 2;
+  return Math.round(Math.max(5, Math.min(95, 47 + state.resources.support * .55 + state.resources.awareness * .12 - card.difficulty - fatigue)));
 }
 
 export function v11Effects(state: RunState, card: PolicyCardV11): Effects {
   const effects = { ...card.effects };
+  if (balanced(state)) {
+    const floor = REVENUE_FLOORS[card.id];
+    if (floor !== undefined) effects.economy = Math.min(100 - state.resources.economy, Math.max(effects.economy ?? 0, floor - state.resources.economy));
+    return effects;
+  }
   if (card.factor) effects.support = (effects.support ?? 0) - Math.max(2, 3 + (card.tier ?? 1) * 2 - (state.resources.awareness >= 60 ? 2 : 0));
   return effects;
 }
 
 export function v11Quote(state: RunState, card: PolicyCardV11): OfferedCard & PolicyCardV11 {
   const rare = card.rarity === "rare";
+  const effects = v11Effects(state, card);
+  const incomeAfter = balanced(state) && effects.economy ? revenueIncome(state.resources.economy + effects.economy) : undefined;
   return { ...card, baseCost: card.cost, affordable: card.cost <= state.resources.credits, approval: v11Approval(state, card),
-    effects: v11Effects(state, card), transitionGain: 0, bonuses: [],
-    rejectionRefund: Math.floor(card.cost * (rare ? .25 : .5)), rejectionSupport: rare ? 15 : 4 };
+    effects, transitionGain: 0, bonuses: [], ...(incomeAfter !== undefined ? { incomeAfter } : {}),
+    rejectionRefund: Math.floor(card.cost * (rare ? .25 : .5)), rejectionSupport: balanced(state) ? 0 : rare ? 15 : 4 };
+}
+
+function rotatingOffers(state: RunState, ranked: PolicyCardV11[]) {
+  const recent = new Set(state.offers);
+  const offset = completedPolicyRounds(state) + (state.redrawsThisTurn ?? 0);
+  const support = SUPPORT_ROTATION.map((_, i) => SUPPORT_ROTATION[(offset + i) % SUPPORT_ROTATION.length])
+    .map(category => ranked.find(card => !card.factor && card.category === category && !recent.has(card.id)))
+    .find(card => card !== undefined);
+  const models = ranked.filter(card => card.factor);
+  const ordered = [...models.filter(card => !recent.has(card.id)), ...models.filter(card => recent.has(card.id))];
+  const selection = support ? [support, ...ordered.slice(0, 2)] : ordered.slice(0, 3);
+  if (!selection.some(card => card.cost <= state.resources.credits)) {
+    const affordable = ordered.find(card => card.cost <= state.resources.credits);
+    if (affordable && selection.length) selection[selection.length - 1] = affordable;
+  }
+  return selection.map(card => card.id);
 }
 
 export function v11Offers(state: RunState, exclude: string[] = []) {
   if (state.finishedAt || stageArcade(state.rulesVersion, state.round)) return [];
   const stage = stageNumber(state.rulesVersion, state.round);
-  const eligible = V11_CARDS.filter(card => !v11Locked(state, card));
+  const eligible = stagedCatalogue(state.rulesVersion).cards.filter(card => !v11Locked(state, card));
   const ranked = eligible.map((card, index) => {
     const roll = Math.max(.000001, randomAt(state.seed, 2100000 + state.round * 10000 + (state.redrawsUsed ?? 0) * 100 + index));
     const weight = card.factor ? 1 : stage === 1 ? 1.5 : 1;
     return { card, rank: -Math.log(roll) / weight };
   }).sort((a, b) => a.rank - b.rank).map(item => item.card);
+  if (balanced(state)) return rotatingOffers(state, ranked);
   const fresh = ranked.filter(card => !exclude.includes(card.id));
   const source = fresh.length >= 3 ? fresh : ranked;
   const common = source.filter(card => card.rarity !== "rare");
@@ -71,6 +104,7 @@ export function v11Offers(state: RunState, exclude: string[] = []) {
 export function v11Create(id: string, name: string, country: string, seed: number, version: string = V11_VERSION): RunState {
   const state = v9Create(id, name, country, seed);
   state.rulesVersion = version;
+  if (balanced(state)) state.resources.economy = 20;
   state.projection.version = MODEL_VERSION;
   state.policySettings = defaultSettings();
   state.offers = v11Offers(state);
@@ -96,10 +130,12 @@ function settle(state: RunState, outcomes: Decision[], arcade = false) {
     state.elapsedMs = Math.max(0, Date.parse(state.finishedAt) - Date.parse(state.startedAt));
     state.score = null;
   } else if (!arcade) {
-    const before = { ...state.resources };
-    apply(state, { support: -(3 + (state.resources.economy < 25 ? 3 : 0)), awareness: -1 });
-    ending.decay = { support: state.resources.support - before.support, awareness: state.resources.awareness - before.awareness };
-    ending.income = Math.min(v9Income(state), 20 - state.resources.credits);
+    if (!balanced(state)) {
+      const before = { ...state.resources };
+      apply(state, { support: -(3 + (state.resources.economy < 25 ? 3 : 0)), awareness: -1 });
+      ending.decay = { support: state.resources.support - before.support, awareness: state.resources.awareness - before.awareness };
+    }
+    ending.income = Math.min(incomeFor(state), 20 - state.resources.credits);
     apply(state, { credits: ending.income });
   }
   state.lastActions = outcomes.length ? outcomes.map((action, index) => index ? action : { ...action, income: ending.income, decay: ending.decay }) : [ending];
@@ -111,7 +147,8 @@ function settle(state: RunState, outcomes: Decision[], arcade = false) {
 export function v11Batch(current: RunState, ids: string[]) {
   if (current.finishedAt || stageArcade(current.rulesVersion, current.round)) throw new GameError("This is not a policy round.", 409);
   if (!ids.length || ids.length > 3 || new Set(ids).size !== ids.length || ids.some(id => !current.offers.includes(id))) throw new GameError("Choose offered cards only.");
-  const cards = ids.map(id => V11_BY_ID.get(id));
+  const { byId } = stagedCatalogue(current.rulesVersion);
+  const cards = ids.map(id => byId.get(id));
   if (cards.some(card => !card || v11Locked(current, card))) throw new GameError("A prerequisite or stage is missing.");
   const valid = cards as PolicyCardV11[];
   const factors = valid.filter(card => card.factor).map(card => card.factor);
@@ -125,7 +162,7 @@ export function v11Batch(current: RunState, ids: string[]) {
   for (const card of quotes) {
     const accepted = randomAt(current.seed, 2400000 + current.history.length + outcomes.length) * 100 < card.approval;
     const refund = accepted ? 0 : card.rejectionRefund!;
-    const effects = accepted ? card.effects : { support: -card.rejectionSupport! };
+    const effects = accepted ? card.effects : card.rejectionSupport ? { support: -card.rejectionSupport } : {};
     apply(state, { credits: refund });
     apply(state, effects);
     if (accepted && card.wildcard) state.electionMandate = true;
@@ -182,10 +219,11 @@ export function v11Special(current: RunState, command: SpecialCommand, now = Dat
 export function v11Public(state: RunState): PublicRun {
   const { seed: _private, offers, ...safe } = state;
   const specialRound = state.finishedAt ? null : stageArcade(state.rulesVersion, state.round);
+  const { cards, byId } = stagedCatalogue(state.rulesVersion);
   return { ...safe, phase: phaseForVersion(state.round, state.rulesVersion), year: 2026,
-    planningYear: 2026, resultYear: 2100, totalRounds: stageSchedule(state.rulesVersion).labels.length, nextIncome: v9Income(state), perks: [], worldEvent: null,
+    planningYear: 2026, resultYear: 2100, totalRounds: stageSchedule(state.rulesVersion).labels.length, nextIncome: incomeFor(state), perks: [], worldEvent: null,
     canRedraw: !state.finishedAt && !specialRound && state.resources.credits >= (state.redrawsThisTurn ?? 0) + 1,
-    redrawCost: (state.redrawsThisTurn ?? 0) + 1, offers: offers.map(id => v11Quote(state, V11_BY_ID.get(id)!)),
-    library: V11_CARDS.map(card => ({ ...v11Quote(state, card), lockedReason: v11Locked(state, card), taken: adopted(state, card.id) })),
+    redrawCost: (state.redrawsThisTurn ?? 0) + 1, offers: offers.map(id => v11Quote(state, byId.get(id)!)),
+    library: cards.map(card => ({ ...v11Quote(state, card), lockedReason: v11Locked(state, card), taken: adopted(state, card.id) })),
     specialRound, generalApproval: v11Approval(state, V11_CARDS[0]), bankLimit: 20, roundSaveBonus: 0 };
 }

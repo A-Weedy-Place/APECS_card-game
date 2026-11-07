@@ -1,10 +1,18 @@
 # Implementation progress
 
+## 2026-11-08 — support rotation and explicit card effects
+
+Added version 0.13 with three sequential support paths, one support offer per hand, and a preference for cards outside the previous hand. Revenue follows 4 → 5 → 6 → 8 coins in an ordinary upgrade sequence. Removed automatic support drain and approval fatigue. Resource changes on adoption appear as colour-coded arrows with labels. Kept older rule versions and their verified leaderboard eligibility.
+
+Verified the production build and 20 focused unit checks covering revenue progression, no passive decline, previous schedules, model caching and leaderboard administration. Two Edge checks passed for the phone hand, visible income arrow and all 35 cards at 320px. Production verification follows deployment.
+
 ## 2026-11-08 — permanent admin deletion, twelve-round games and model wait
 
 Implemented confirmed permanent deletion, visible per-row linked browser reset, audited manual top-ten placement for verified results, and versioned four-round stages for new 0.12 games. Previous 0.11 games retain their nine-round schedule and verified results remain eligible. Updated the queued model label and kept the live leaderboard’s five-second refresh. The model worker was offline. Restart cleared one queued result at 2.9°C in 18.4 seconds. Faster public slider entry reproduced that package at 2.9°C in 12.8 seconds and verified a separate 19-control package in 14.6 seconds. The laptop worker now runs the updated bridge. Official link and all-input readback checks remain required.
 
 Verified locally: build, new schedule/deletion/ranking tests and 18 focused model/store checks after correcting an old test fixture that stopped after 11 steps. Four isolated browser checks passed for the 14-step layout, arcade, model waiting/polling, admin reset and permanent deletion. Hosted migration applied only to APECS. Supabase advisors reported no warnings. Production verification follows the deployment. No pre-existing player record was selected for deletion.
+
+Verified in production on 2026-11-08: deployment `dpl_7eXWkGZQGmNVnHzJyMHC8eEqazus` from `bd14a44` is ready. A generated game finished after all 14 steps, with arcade breaks at indices 4 and 9. Admin restored its linked browser allowance, edited its name and flag, placed its verified 3.3°C result at position 1, and deleted it. Three visible leaderboard fetches showed the placement and deletion without page navigation. The deleted game’s history, controls, audit and browser link were absent. A stale start retry returned 410 and the other game on its browser stayed available until diagnostic cleanup. A fresh model job completed in 19.9 seconds. The cached repeat returned in 386ms. Diagnostic records were removed. Evidence is in `data/v12-release.json`.
 
 ## 2026-11-05 — iPhone country entry, optional flags and unique names
 

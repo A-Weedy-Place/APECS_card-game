@@ -12,7 +12,7 @@ async function main(){
  try{
   await page.goto(base);await page.getByLabel("Name",{exact:true}).fill(name);await page.getByRole("button",{name:"Country: Select",exact:true}).click();await page.getByRole("searchbox",{name:"Search countries"}).fill("Antarctica");await page.getByRole("option",{name:"Antarctica",exact:true}).click();
   const [start]=await Promise.all([page.waitForResponse(r=>r.url().endsWith("/api/runs")&&r.request().method()==="POST"),page.getByRole("button",{name:"Play",exact:true}).click()]);const session=await start.json() as {run:PublicRun;token:string};let run=session.run;id=run.id;
-  if(run.rulesVersion!=="prototype-0.12")throw new Error("Expected current published rules.");let automaticPosts=0;page.on("response",r=>{if(r.url().endsWith("/model")&&r.request().method()==="POST")automaticPosts++;});
+  if(run.rulesVersion!=="prototype-0.13")throw new Error("Expected current published rules.");let automaticPosts=0;page.on("response",r=>{if(r.url().endsWith("/model")&&r.request().method()==="POST")automaticPosts++;});
   await page.getByRole("button",{name:"Skip tutorial",exact:true}).click();await expect(page.getByRole("dialog",{name:"How to play",exact:true})).not.toBeVisible();
   while(!run.finishedAt){
    const [result]=await Promise.all([page.waitForResponse(r=>r.url().includes(`/api/runs/${id}/actions`)&&r.request().method()==="POST"),(async()=>{

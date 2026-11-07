@@ -1,7 +1,7 @@
 import type { Phase, Resources } from "./types";
-import { V12_VERSION, stagedRules, stageSchedule, stageNumber } from "./v11-schedule";
+import { V13_VERSION, stagedRules, stageSchedule, stageNumber } from "./v11-schedule";
 
-export const RULES_VERSION = V12_VERSION;
+export const RULES_VERSION = V13_VERSION;
 export const PLANNING_YEAR = 2026;
 export const PLANNING_ROUNDS = 10;
 export const LEGACY_YEARS = [2030, 2040, 2050, 2060, 2070, 2080, 2090] as const;

@@ -1,5 +1,11 @@
 # 0.11: 35 cards and three stages — 2026-11-05
 
+## 0.13 support paths and balance — 2026-11-08
+
+The 14-step schedule carries over from 0.12. A hand gets up to one support card. The preferred path rotates through revenue, politics and public engagement, with the remaining paths tried if necessary. Each path requires step 1, then 2, then 3. Adoption retires the card. The dealer avoids the immediately preceding hand when it has alternatives. Shuffles advance the preferred path. Revenue starts at 20 resource points and yields 4 coins per ordinary round. The upgrades raise it to at least 5, then 6, then 8 coins when played on their own. All revenue upgrades pass automatically. Gold politics and engagement finales still need approval. The reserve is 20 coins.
+
+0.13 removes the automatic support and engagement drain, extra per-policy support cost, rejection support penalty and round-based approval fatigue. Selected model cards still have explicit effects, including controversial maximum taxes and the existing high-risk population and GDP scenarios. The offered card shows green/red effect arrows and a preview of any coin-income change. Earlier saved runs use their original catalogue and balance. Verified 0.11, 0.12 and 0.13 records share the leaderboard. En-ROADS control targets and model cache profiles match 0.12.
+
 ## 0.12 schedule and calculation update — 2026-11-08
 
 New games use 4 policy rounds, Flappy Flight, 4 policy rounds, Reef Rescue, then 4 policy rounds. The 14 internal steps are versioned in `v11-schedule.ts`. Saved 0.11 keeps the original 11 steps and existing arcade inputs. Stages, offer eligibility, approval fatigue, settlement, the timeline, tutorial and history use the saved version’s schedule. Verified 0.11 and 0.12 results can appear together. Automatic rank still uses displayed temperature then play time. The admin can give a verified result a labelled manual position.

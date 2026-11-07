@@ -3,7 +3,7 @@ import { Check, X } from "lucide-react";
 import { CONTROLS, controlFor, defaultSettings, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
 import type { Decision, LibraryCard, PublicRun } from "@/game/types";
 import { CardArt } from "./card-art";
-import { stagedRules, stageRoundLabel } from "@/game/v11-schedule";
+import { stagedRules, stageRoundLabel, V13_VERSION } from "@/game/v11-schedule";
 import type { PolicyCardV11 } from "@/game/v11-catalogue";
 
 type JournalCard = LibraryCard & PolicyCardV11;
@@ -62,7 +62,12 @@ export function PolicyLibrary({ version, cards, filter, onFilter, onInspect }: {
       </section>;
     })}
     {(filter === "all" || filter === "support") && <section className="library-area">
-      <h3>Support cards</h3>{tiles(cards.filter(card => !card.factor))}
+      <h3>Support cards</h3>
+      {version === V13_VERSION ? ([
+        ["economics", "Revenue growth"], ["politics", "Political support"], ["awareness", "Public engagement"],
+      ] as const).map(([category, title]) => <section key={category} className="library-path">
+        <h4>{title}</h4>{tiles(cards.filter(card => !card.factor && card.category === category))}
+      </section>) : tiles(cards.filter(card => !card.factor))}
     </section>}
   </>;
 }
