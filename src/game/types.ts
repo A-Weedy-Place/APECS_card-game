@@ -54,9 +54,9 @@ export type Synergy = { id: string; title: string; description: string };
 export type SynergyRecipe = Synergy & { requires: string[]; active: boolean };
 export type ScoreComponent = { label: string; value: number; max: number };
 export type PublicRun = Omit<RunState, "seed" | "offers"> & { offers: OfferedCard[]; phase: Phase; year: number; nextIncome: number; perks: Perk[]; worldEvent: WorldEvent | null; canRedraw: boolean; years?: number[]; totalRounds?: number; redrawCost?: number; library?: LibraryCard[]; pathways?: Pathway[]; activeSynergies?: Synergy[]; synergyLibrary?: SynergyRecipe[]; scoreBreakdown?: ScoreComponent[]; upkeep?: number; transitionTarget?: number; planningYear?: number; resultYear?: number; canEndRound?: boolean; playedThisRound?: number; roundSaveBonus?: number; climateScenario?: ClimateLeverSetting[]; specialRound?: SpecialKind | null; generalApproval?: number; bankLimit?: number };
-export type LeaderboardEntry = { id: string; nickname: string; country: string; score: number; finishedAt: string; rulesVersion?: string; hidden?: boolean;temperatureC?:number;elapsedMs?:number };
+export type LeaderboardEntry = { id: string; nickname: string; country: string; score: number; finishedAt: string; rulesVersion?: string; hidden?: boolean;temperatureC?:number;elapsedMs?:number;manualRank?:number };
 export type AttemptStatus = { used: number; remaining: number; limit: number };
-export type AdminRecord = { id: string; nickname: string; country: string; score: number | null; originalScore: number | null; hidden: boolean; deleted: boolean; finishedAt: string | null; startedAt: string; round: number; rulesVersion: string; revision: number;temperatureC?:number;elapsedMs?:number };
+export type AdminRecord = { id: string; nickname: string; country: string; score: number | null; originalScore: number | null; hidden: boolean; deleted: boolean; finishedAt: string | null; startedAt: string; round: number; rulesVersion: string; revision: number;temperatureC?:number;elapsedMs?:number;manualRank?:number;playsUsed?:number };
 export type AdminData = { entries: LeaderboardEntry[]; records: AdminRecord[]; total: number; page: number; pages: number; stats: { runs: number; completed: number; hidden: number; deleted: number } };
 export type AdminActivity = {
   attempts: AttemptStatus | null;

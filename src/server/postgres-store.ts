@@ -4,7 +4,8 @@ import { createRun, GameError, publicRun, redactPublicRun, takeAction, takeCardB
 import type { AdminActivity, AdminData, AdminRecord, AttemptStatus, LeaderboardEntry, PublicRun, RunState, SpecialCommand } from "@/game/types";
 import { RULES_VERSION } from "@/game/config";
 import { settingsFor } from "@/game/catalogues";
-import { compareResults } from "@/game/ranking";
+import { orderLeaderboard } from "@/game/ranking";
+import { V11_VERSION, stagedRules } from "@/game/v11-schedule";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
 import { evaluationFromRow, type EvaluationRow } from "./evaluation";
 import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
@@ -13,8 +14,8 @@ import { assertPlayerNameAvailable, cleanPlayerName, playerNameKey, playerNameLo
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
 export const PLAY_LIMIT=2;
 type DB=Pick<PoolClient,"query">;
-type Row={id:string;token_hash:string;state:string;hidden:number;finished_at:string|null;created_at:string;display_name?:string|null;country?:string|null;score_override?:number|null;deleted?:number;control_revision?:number};
-type Update={nickname?:string;country?:string;score?:number|null;hidden?:boolean;deleted?:boolean};
+type Row={id:string;token_hash:string;state:string;hidden:number;finished_at:string|null;created_at:string;display_name?:string|null;country?:string|null;score_override?:number|null;deleted?:number;control_revision?:number;manual_rank?:number|null;plays_used?:number|null};
+type Update={nickname?:string;country?:string;score?:number|null;manualRank?:number|null;hidden?:boolean;deleted?:boolean};
 async function rows<T>(sql:string,args:unknown[]=[],db:DB=pool()):Promise<T[]>{return (await db.query(sql,args)).rows as T[];}
 async function one<T>(sql:string,args:unknown[]=[],db:DB=pool()){return (await rows<T>(sql,args,db))[0];}
 async function checkPlayerName(name:string,db:DB,exceptId?:string){
@@ -33,7 +34,7 @@ async function visibleRun(state:RunState|PublicRun,db:DB=pool()):Promise<PublicR
   const control=await one<{display_name:string|null;country:string|null;score_override:number|null;deleted:number}>("SELECT * FROM apecs.run_controls WHERE run_id=$1",[state.id],db);
   if(control?.deleted)throw new GameError("This game was removed by the organiser.",410);
   const visible="phase" in state?redactPublicRun(state as PublicRun):publicRun(state as RunState);
-  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?await modelStatus(settingsFor(visible.history),visible.rulesVersion!=="prototype-0.11",db):undefined;
+  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?await modelStatus(settingsFor(visible.history),!stagedRules(visible.rulesVersion),db):undefined;
   return {...visible,nickname:control?.display_name??visible.nickname,country:control?.country??visible.country,score:modelRules(visible.rulesVersion)?null:visible.finishedAt?control?.score_override??visible.score:visible.score,
     ...(evaluation?{modelEvaluation:evaluation,...(evaluation.status==="complete"?{projection:{...visible.projection,kind:"model" as const,model:"En-ROADS",version:evaluation.modelVersion!,temperatureC:evaluation.temperatureC,caveat:"Experimental public-UI evaluation of the full scenario. Conditional projection, not a prediction or vendor endorsement."}}:{})}:{})};
 }
@@ -46,8 +47,11 @@ export async function startRun(nickname:string,country:string,browser?:{token:st
       await db.query("INSERT INTO apecs.browser_passes(group_hash,used) VALUES ($1,0) ON CONFLICT DO NOTHING",[group]);
       await db.query("SELECT used FROM apecs.browser_passes WHERE group_hash=$1 FOR UPDATE",[group]);
       token=createHmac("sha256",browser.token).update(browser.requestId).digest("hex");
-      const previous=await one<{run_id:string}>("SELECT run_id FROM apecs.run_attempts WHERE group_hash=$1 AND request_id=$2",[group,browser.requestId],db);
-      if(previous)return {run:await visibleRun(JSON.parse((await ownedRun(previous.run_id,token,db)).state),db),token};
+      const previous=await one<{run_id:string|null}>("SELECT run_id FROM apecs.run_attempts WHERE group_hash=$1 AND request_id=$2",[group,browser.requestId],db);
+      if (previous) {
+        if (previous.run_id === null) throw new GameError("This game was permanently deleted.", 410);
+        return { run: await visibleRun(JSON.parse((await ownedRun(previous.run_id, token, db)).state), db), token };
+      }
       if(!(await attemptStatus(browser.token,db)).remaining)throw new GameError("Both plays are used. You can still view your history and the leaderboard.",403);
     }
     nickname=cleanPlayerName(nickname);
@@ -74,12 +78,20 @@ export async function actOnRun(id:string,token:string,cardId:string|string[]|Spe
   });
 }
 export async function leaderboard(includeHidden=false):Promise<LeaderboardEntry[]>{
-  const found=await rows<Row>(`SELECT r.*,c.display_name,c.country,c.score_override FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND COALESCE(c.deleted,0)=0 ${includeHidden?"AND r.score IS NOT NULL":"AND r.hidden=0 AND r.state::jsonb->>'rulesVersion'=$1"}`,includeHidden?[]:[RULES_VERSION]);
+  const found=await rows<Row>(`SELECT r.*,c.display_name,c.country,c.score_override,c.manual_rank FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND COALESCE(c.deleted,0)=0 ${includeHidden?"AND r.score IS NOT NULL":"AND r.hidden=0 AND r.state::jsonb->>'rulesVersion' IN ($1,$2)"}`,includeHidden?[]:[RULES_VERSION,V11_VERSION]);
   if(includeHidden)return found.map(row=>{const s=JSON.parse(row.state) as RunState;return {id:row.id,nickname:row.display_name??s.nickname,country:row.country??s.country,score:row.score_override??s.score!,finishedAt:s.finishedAt!,rulesVersion:s.rulesVersion,hidden:!!row.hidden};}).sort((a,b)=>b.score-a.score).slice(0,100);
   const states=found.map(row=>JSON.parse(row.state) as RunState),keys=states.map(s=>scenarioKey(settingsFor(s.history)));
   const cache=keys.length?await rows<EvaluationRow&{scenario_key:string}>("SELECT * FROM apecs.model_evaluations WHERE scenario_key=ANY($1::text[])",[keys]):[];
   const byKey=new Map(cache.map(row=>[row.scenario_key,row]));
-  return found.flatMap((row,index)=>{const s=states[index],evaluation=evaluationFromRow(byKey.get(keys[index]),settingsFor(s.history));return evaluation.status!=="complete"?[]:[{id:row.id,nickname:row.display_name??s.nickname,country:row.country??s.country,score:evaluation.temperatureC!,temperatureC:evaluation.temperatureC!,elapsedMs:s.elapsedMs??0,finishedAt:s.finishedAt!,rulesVersion:s.rulesVersion}];}).sort(compareResults).slice(0,100);
+  const entries = found.flatMap((row, index) => {
+    const state = states[index];
+    const evaluation = evaluationFromRow(byKey.get(keys[index]), settingsFor(state.history));
+    if (evaluation.status !== "complete") return [];
+    return [{ id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country,
+      score: evaluation.temperatureC!, temperatureC: evaluation.temperatureC!, elapsedMs: state.elapsedMs ?? 0,
+      finishedAt: state.finishedAt!, rulesVersion: state.rulesVersion, manualRank: row.manual_rank ?? undefined }];
+  });
+  return orderLeaderboard(entries).slice(0, 100);
 }
 export async function stats():Promise<AdminData["stats"]>{return (await one<AdminData["stats"]>("SELECT COUNT(*)::int AS runs,COUNT(finished_at)::int AS completed,COALESCE(SUM(hidden),0)::int AS hidden,(SELECT COUNT(*)::int FROM apecs.run_controls WHERE deleted=1) AS deleted FROM apecs.runs"))!;}
 export async function displayUrl(){return (await one<{value:string}>("SELECT value FROM apecs.event_settings WHERE key='join-url'"))?.value??"";}
@@ -88,11 +100,23 @@ export async function adminRecords(page=1,query=""):Promise<AdminData>{
   const where=query?"WHERE position(lower($1) in lower(COALESCE(c.display_name,r.state::jsonb->>'nickname')))>0 OR r.id=$1":"",args=query?[query]:[];
   const total=(await one<{n:number}>(`SELECT COUNT(*)::int AS n FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id ${where}`,args))!.n;
   const pages=Math.max(1,Math.ceil(total/30));page=Math.max(1,Math.min(pages,Math.floor(page)));
-  const found=await rows<Row>(`SELECT r.*,c.display_name,c.country,c.score_override,COALESCE(c.deleted,0) AS deleted,COALESCE(c.revision,0) AS control_revision FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id ${where} ORDER BY r.created_at DESC,r.id LIMIT 30 OFFSET $${args.length+1}`,[...args,(page-1)*30]);
-  const records:AdminRecord[]=await Promise.all(found.map(async row=>{const s=JSON.parse(row.state) as RunState;const model=modelRules(s.rulesVersion)&&s.finishedAt?await modelStatus(settingsFor(s.history),s.rulesVersion!=="prototype-0.11"):null;return {id:row.id,nickname:row.display_name??s.nickname,country:row.country??s.country,score:row.score_override??s.score,originalScore:s.score,hidden:!!row.hidden,deleted:!!row.deleted,finishedAt:s.finishedAt,startedAt:s.startedAt,round:s.round,rulesVersion:s.rulesVersion,revision:row.control_revision??0,elapsedMs:s.elapsedMs,...(model?.status==="complete"?{temperatureC:model.temperatureC}:{})};}));
+  const found = await rows<Row>(`SELECT r.*, c.display_name, c.country, c.score_override, c.manual_rank, p.used AS plays_used,
+    COALESCE(c.deleted,0) AS deleted, COALESCE(c.revision,0) AS control_revision
+    FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id
+    LEFT JOIN apecs.run_attempts a ON a.run_id=r.id LEFT JOIN apecs.browser_passes p ON p.group_hash=a.group_hash
+    ${where} ORDER BY r.created_at DESC,r.id LIMIT 30 OFFSET $${args.length+1}`, [...args, (page-1)*30]);
+  const records: AdminRecord[] = await Promise.all(found.map(async row => {
+    const state = JSON.parse(row.state) as RunState;
+    const model = modelRules(state.rulesVersion) && state.finishedAt ? await modelStatus(settingsFor(state.history), !stagedRules(state.rulesVersion)) : null;
+    return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country,
+      score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted,
+      finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion,
+      revision: row.control_revision ?? 0, elapsedMs: state.elapsedMs, manualRank: row.manual_rank ?? undefined,
+      playsUsed: row.plays_used ?? undefined, temperatureC: model?.status === "complete" ? model.temperatureC : undefined };
+  }));
   return {records,total,page,pages,stats:await stats(),entries:await leaderboard(true)};
 }
-export async function adminRun(id:string){const row=await one<{state:string}>("SELECT state FROM apecs.runs WHERE id=$1",[id]);if(!row)throw new GameError("Game not found.",404);const s=JSON.parse(row.state) as RunState;return {...publicRun(s),...(modelRules(s.rulesVersion)&&s.finishedAt?{modelEvaluation:await modelStatus(settingsFor(s.history),s.rulesVersion!=="prototype-0.11")}:{})};}
+export async function adminRun(id:string){const row=await one<{state:string}>("SELECT state FROM apecs.runs WHERE id=$1",[id]);if(!row)throw new GameError("Game not found.",404);const s=JSON.parse(row.state) as RunState;return {...publicRun(s),...(modelRules(s.rulesVersion)&&s.finishedAt?{modelEvaluation:await modelStatus(settingsFor(s.history),!stagedRules(s.rulesVersion))}:{})};}
 export async function adminActivity(id:string):Promise<AdminActivity>{
   const run=await adminRun(id);
   const group=await one<{group_hash:string;used:number}>("SELECT a.group_hash,p.used FROM apecs.run_attempts a JOIN apecs.browser_passes p ON p.group_hash=a.group_hash WHERE a.run_id=$1 LIMIT 1",[id]);
@@ -103,6 +127,7 @@ export async function adminActivity(id:string):Promise<AdminActivity>{
 }
 export async function resetAttempts(token:string){return transaction(async db=>{await db.query("UPDATE apecs.browser_passes SET used=0 WHERE group_hash=$1",[hash(token)]);await db.query("INSERT INTO apecs.admin_audit VALUES ($1,NULL,$2,$3,$4)",[randomUUID(),"reset-browser-plays","{}",new Date().toISOString()]);return attemptStatus(token,db);});}
 export async function resetPlayerAttempts(id:string){return transaction(async db=>{
+  if (!await one("SELECT id FROM apecs.runs WHERE id=$1 FOR UPDATE", [id], db)) throw new GameError("No browser allowance is linked to this game.", 404);
   const row=await one<{group_hash:string;used:number}>("SELECT a.group_hash,p.used FROM apecs.run_attempts a JOIN apecs.browser_passes p ON p.group_hash=a.group_hash WHERE a.run_id=$1 LIMIT 1 FOR UPDATE OF p",[id],db);
   if(!row)throw new GameError("No browser allowance is linked to this game.",404);
   await db.query("UPDATE apecs.browser_passes SET used=0 WHERE group_hash=$1",[row.group_hash]);
@@ -110,17 +135,30 @@ export async function resetPlayerAttempts(id:string){return transaction(async db
 });}
 export async function editRecord(id:string,expectedRevision:number,update:Update){return transaction(async db=>{
   const row=await one<Row>("SELECT * FROM apecs.runs WHERE id=$1 FOR UPDATE",[id],db);if(!row)throw new GameError("Game not found.",404);
-  const previous=await one<{display_name:string|null;country:string|null;score_override:number|null;deleted:number;revision:number}>("SELECT * FROM apecs.run_controls WHERE run_id=$1",[id],db);
+  const previous=await one<{display_name:string|null;country:string|null;score_override:number|null;deleted:number;revision:number;manual_rank:number|null}>("SELECT * FROM apecs.run_controls WHERE run_id=$1",[id],db);
   if((previous?.revision??0)!==expectedRevision)throw new GameError("Record changed. Refresh before editing.",409);
   const s=JSON.parse(row.state) as RunState;
   if(update.nickname!==undefined){update={...update,nickname:cleanPlayerName(update.nickname)};if(playerNameKey(update.nickname!)!==playerNameKey(previous?.display_name??s.nickname))await checkPlayerName(update.nickname!,db,id);}
   if(modelRules(s.rulesVersion)&&update.score!==undefined)throw new GameError("Model temperatures cannot be edited as game points.");
   if(update.score!==undefined&&(!s.finishedAt||update.score!==null&&(!Number.isInteger(update.score)||update.score<0||update.score>1000)))throw new GameError("Only completed games accept a score correction from 0 to 1000.");
-  const next={display_name:update.nickname??previous?.display_name??null,country:update.country??previous?.country??null,score_override:update.score===undefined?previous?.score_override??null:update.score,deleted:update.deleted===undefined?previous?.deleted??0:Number(update.deleted),revision:expectedRevision+1};
-  await db.query("INSERT INTO apecs.run_controls VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(run_id) DO UPDATE SET display_name=excluded.display_name,country=excluded.country,score_override=excluded.score_override,deleted=excluded.deleted,revision=excluded.revision",[id,next.display_name,next.country,next.score_override,next.deleted,next.revision]);
+  if (update.manualRank != null && (!stagedRules(s.rulesVersion) || !s.finishedAt || (await modelStatus(settingsFor(s.history), false, db)).status !== "complete")) {
+    throw new GameError("Only a verified leaderboard result can be placed manually.");
+  }
+  const next={display_name:update.nickname??previous?.display_name??null,country:update.country??previous?.country??null,score_override:update.score===undefined?previous?.score_override??null:update.score,deleted:update.deleted===undefined?previous?.deleted??0:Number(update.deleted),revision:expectedRevision+1,manual_rank:update.manualRank===undefined?previous?.manual_rank??null:update.manualRank};
+  await db.query(`INSERT INTO apecs.run_controls(run_id,display_name,country,score_override,deleted,revision,manual_rank) VALUES ($1,$2,$3,$4,$5,$6,$7)
+    ON CONFLICT(run_id) DO UPDATE SET display_name=excluded.display_name,country=excluded.country,score_override=excluded.score_override,
+    deleted=excluded.deleted,revision=excluded.revision,manual_rank=excluded.manual_rank`,[id,next.display_name,next.country,next.score_override,next.deleted,next.revision,next.manual_rank]);
   if(update.hidden!==undefined)await db.query("UPDATE apecs.runs SET hidden=$1 WHERE id=$2",[Number(update.hidden),id]);
   await db.query("INSERT INTO apecs.admin_audit VALUES ($1,$2,$3,$4,$5)",[randomUUID(),id,update.deleted?"trash":update.deleted===false?"restore":"edit",JSON.stringify({before:{...previous,hidden:!!row.hidden},after:{...next,hidden:update.hidden??!!row.hidden}}),new Date().toISOString()]);
 });}
+export async function deleteRecord(id: string, expectedRevision: number) {
+  return transaction(async db => {
+    if (!await one("SELECT id FROM apecs.runs WHERE id=$1 FOR UPDATE", [id], db)) return;
+    const control = await one<{ revision: number }>("SELECT revision FROM apecs.run_controls WHERE run_id=$1", [id], db);
+    if ((control?.revision ?? 0) !== expectedRevision) throw new GameError("Record changed. Refresh before deleting.", 409);
+    await db.query("DELETE FROM apecs.runs WHERE id=$1", [id]);
+  });
+}
 export async function moderate(id:string,hidden:boolean){const row=await one<{revision:number}>("SELECT COALESCE(c.revision,0) AS revision FROM apecs.runs r LEFT JOIN apecs.run_controls c ON c.run_id=r.id WHERE r.id=$1 AND r.finished_at IS NOT NULL",[id]);if(!row)throw new GameError("Completed run not found.",404);await editRecord(id,row.revision,{hidden});}
 export async function modelSettings(id:string,token:string){const s=JSON.parse((await ownedRun(id,token)).state) as RunState;if(!modelRules(s.rulesVersion)||!s.finishedAt)throw new GameError("Finish a new game before evaluating its scenario.",409);return settingsFor(s.history);}
 export async function modelStatus(settings:Record<string,number>,allowLegacy=false,db:DB=pool()){

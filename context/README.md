@@ -1,10 +1,10 @@
 # Cryosphere Futures context index
 
-New0.11:35 cards (26 model/9 support), all19 En-ROADS controls, nine2026 policy rounds in three stages and two endless coin-only arcade breaks. Model upgrades need an adopted first step and stage2; nuclear choices exclude each other. Red scenario-risk cards and three gold support rares. Upright phone hand and compact three-resource HUD. Read16-v11-stages.md first. Vercel/Supabase hosts the game; an experimental outbound-only laptop worker evaluates complete scenarios in the public En-ROADS UI, now version26.11.0. Completed26.10 caches retain their original results for older saves. Not an SDK or event-ready model service. Start8/cap20 coins; two browser starts (bypassable soft limit); separate admin/display. Verified versus pending checks are in Progress.
+New 0.12 games have twelve policy rounds in three groups of four, with endless coin-only arcade breaks after rounds 4 and 8. The 35 cards cover all 19 En-ROADS controls. Saved 0.11 games keep their nine policy rounds. Read 16-v11-stages.md for schedules and 14-hosting-admin.md for permanent deletion, linked browser resets and manual leaderboard placement. Vercel/Supabase hosts the game. An experimental outbound-only laptop worker evaluates complete scenarios in the public En-ROADS 26.11.0 UI. Completed 26.10 cache entries retain their original results for older saves. Verified versus pending checks are in Progress.
 
 | Need | Read | Main code |
 | --- | --- | --- |
-| Current0.11 stages,35 cards, survival arcade and model profile | [0.11 stages](16-v11-stages.md) | `v11.ts`, `v11-catalogue.ts`, `v11-schedule.ts`, `arcade.ts` |
+| Current 0.12 and saved 0.11 stages, 35 cards, survival arcade and model profile | [Stage schedules](16-v11-stages.md) | `v11.ts`, `v11-catalogue.ts`, `v11-schedule.ts`, `arcade.ts` |
 | Established layout, auto results and laptop worker | [0.10 experience](15-v10-experience-worker.md) | `experience-v10.css`, `model-queue.ts`, `scripts/model-worker.ts` |
 | Opening screen, iPhone/optional country picker, unique names and tutorial | [Entry and experience](15-v10-experience-worker.md) | `home.tsx`, `country-picker.tsx`, `player-name.ts`, `game-tutorial.tsx` |
 | Every current card, costs, effects and unlock diagrams | [Card guide](../public/card-guide.md) | `v11-catalogue.ts`, `v11.ts` |

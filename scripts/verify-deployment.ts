@@ -21,7 +21,7 @@ try{
  }));
  const failed=starts.find(result=>result.status==="rejected");if(failed?.status==="rejected")throw failed.reason;
  const players=starts.map(result=>{if(result.status!=="fulfilled")throw new Error("Start failed.");return result.value;});
- for(let round=0;round<11;round++){const outcomes=await Promise.allSettled(players.map(async player=>{
+ for(let round=0;round<players[0].run.totalRounds!;round++){const outcomes=await Promise.allSettled(players.map(async player=>{
   let budget=player.run.resources.credits;const factors=new Set<string>();
   const cards=player.run.offers.filter(card=>{const factor=(card as typeof card&{factor?:string}).factor;if(card.cost>budget||factor&&factors.has(factor))return false;if(factor)factors.add(factor);budget-=card.cost;return true;}).map(card=>card.id);
   const action={...(cards.length?{cardIds:cards}:{cardId:"save"}),revision:player.run.revision,requestId:randomUUID()};

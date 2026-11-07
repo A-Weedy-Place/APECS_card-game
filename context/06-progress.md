@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-08 — permanent admin deletion, twelve-round games and model wait
+
+Implemented confirmed permanent deletion, visible per-row linked browser reset, audited manual top-ten placement for verified results, and versioned four-round stages for new 0.12 games. Previous 0.11 games retain their nine-round schedule and verified results remain eligible. Updated the queued model label and kept the live leaderboard’s five-second refresh. The model worker was offline. Restart cleared one queued result at 2.9°C in 18.4 seconds. Faster public slider entry reproduced that package at 2.9°C in 12.8 seconds and verified a separate 19-control package in 14.6 seconds. The laptop worker now runs the updated bridge. Official link and all-input readback checks remain required.
+
+Verified locally: build, new schedule/deletion/ranking tests and 18 focused model/store checks after correcting an old test fixture that stopped after 11 steps. Four isolated browser checks passed for the 14-step layout, arcade, model waiting/polling, admin reset and permanent deletion. Hosted migration applied only to APECS. Supabase advisors reported no warnings. Production verification follows the deployment. No pre-existing player record was selected for deletion.
+
 ## 2026-11-05 — iPhone country entry, optional flags and unique names
 
 Replaced the iPhone/iPad country popup path with a native select, retaining real selected flags and flag-labelled system options. Kept the searchable popup on other browsers, added Not specified, made country optional in player/admin validation and rendered a neutral blank SVG for empty countries. New names are NFKC/whitespace-normalized and reserved case-insensitively against original/current identities. Starts and admin renames check within SQLite write transactions or per-name Postgres transaction advisory locks; identical retried starts still return the original run, and rejected duplicates use no play. Existing games/duplicates remain intact. No schema migration, grants, model or scoring changes.

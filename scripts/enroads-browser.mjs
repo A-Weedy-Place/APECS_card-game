@@ -58,11 +58,27 @@ async function evaluate(settings) {
       const target = settings[c.id];
       if (target === c.baseline) continue;
       const field = fieldFor(c);
-      await handleFor(c).focus();
+      const handle = handleFor(c);
+      const position = () => handle.evaluate(element => Number.parseFloat(element.style.left));
+      const initialPosition = await position();
+      await handle.focus();
       await page.keyboard.press('ArrowRight');
-      const current = await numericAttribute(field, 'data-value');
+      let current = await numericAttribute(field, 'data-value');
       const step = current - c.baseline;
       if (step <= 0) throw new Error(`Keyboard step changed: ${c.id}`);
+      if (Math.abs(target - current) / step >= 8) {
+        const direction = Math.sign(await position() - initialPosition);
+        const track = field.locator('..').locator('.slider-track');
+        const bounds = await track.boundingBox();
+        if (direction && bounds && bounds.width > 2) {
+          const fraction = (target - c.min) / (c.max - c.min);
+          const x = (direction > 0 ? fraction : 1 - fraction) * bounds.width;
+          // Jump on the visible slider, then use keys to reach the exact value.
+          await track.click({ position: { x: Math.max(.5, Math.min(bounds.width - .5, x)), y: bounds.height / 2 }, timeout: 1500 }).catch(() => {});
+          current = await numericAttribute(field, 'data-value');
+          await handle.focus();
+        }
+      }
       const distance = (target - current) / step;
       const count = Math.round(Math.abs(distance));
       if (Math.abs(Math.abs(distance) - count) > 1e-5 || count > 1000) throw new Error(`Unreachable target: ${c.id}`);

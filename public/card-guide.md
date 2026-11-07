@@ -1,8 +1,8 @@
 # APECS card guide — 35-card version
 
-Current rules **0.11** · **26 model cards + 9 support cards** · En-ROADS **26.11.0**.
+Current rules **0.12** · **26 model cards + 9 support cards** · En-ROADS **26.11.0**.
 
-Updated 5 November 2026.
+Updated 8 November 2026.
 
 ## Read the map
 
@@ -17,12 +17,12 @@ Each box is one card and its price. **An arrow means the earlier card must pass 
 ## Round structure
 
 ```text
-Stage 1                 Stage 2                 Stage 3
-1 → 2 → 3 → ★ Flight → 4 → 5 → 6 → ★ Reef → 7 → 8 → 9 → Result
-Foundations             Upgrades unlock         Final policy choices
+Stage 1: 1 → 2 → 3 → 4 → ★ Flight
+Stage 2: 5 → 6 → 7 → 8 → ★ Reef
+Stage 3: 9 → 10 → 11 → 12 → Result
 ```
 
-There are **nine policy rounds and two arcade breaks**. The stars are additional screens between stages. Every policy is adopted in 2026, and the final complete model scenario gives the 2100 temperature.
+There are **twelve policy rounds and two arcade breaks**. The stars mark the breaks after rounds 4 and 8. Every policy is adopted in 2026, and the final complete model scenario gives the 2100 temperature.
 
 The first stage favours ordinary revenue, politics and engagement cards. Each shuffle costs more within a round. First-stage model cards can appear throughout the game. A rare card can appear after its support prerequisite passes.
 

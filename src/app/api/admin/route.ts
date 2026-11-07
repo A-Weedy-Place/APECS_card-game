@@ -1,6 +1,7 @@
 import { GameError } from "@/game/engine";
 import { failure, jsonBody, requireAdmin, respond } from "@/server/http";
-import { adminRecords, adminRun, adminActivity, resetPlayerAttempts, editRecord, moderate, rateLimit } from "@/server/persistence";
+import { adminRecords, adminRun, adminActivity, resetPlayerAttempts, editRecord, deleteRecord, moderate, rateLimit } from "@/server/persistence";
+import { DISPLAY_PLACES } from "@/game/ranking";
 import { COUNTRY_CODES } from "@/lib/countries";
 import { cleanPlayerName } from "@/server/player-name";
 export const runtime = "nodejs";
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     requireAdmin(request);
+    await rateLimit(`admin-edit:${request.headers.get("x-forwarded-for") ?? "local"}`, 60);
     const body = await jsonBody(request);
     if (body.action==="reset-plays" && typeof body.id==="string") return respond(await resetPlayerAttempts(body.id));
     if (typeof body.id !== "string" || typeof body.hidden !== "boolean") throw new GameError("Invalid moderation request.");
@@ -45,12 +47,28 @@ export async function PATCH(request: Request) {
       if (body.score !== null && (typeof body.score !== "number" || !Number.isInteger(body.score) || body.score < 0 || body.score > 1000)) throw new GameError("Score must be 0–1000, or null to restore the calculated score.");
       update.score = body.score as number | null;
     }
-    for (const key of ["hidden", "deleted"] as const) if (body[key] !== undefined) {
-      if (typeof body[key] !== "boolean") throw new GameError("Invalid record status.");
-      update[key] = body[key] as boolean;
+    if (body.manualRank !== undefined) {
+      if (body.manualRank !== null && (typeof body.manualRank !== "number" || !Number.isInteger(body.manualRank) || body.manualRank < 1 || body.manualRank > DISPLAY_PLACES)) {
+        throw new GameError(`Choose a leaderboard position from 1 to ${DISPLAY_PLACES}, or clear the field.`);
+      }
+      update.manualRank = body.manualRank as number | null;
+    }
+    if (body.hidden !== undefined) {
+      if (typeof body.hidden !== "boolean") throw new GameError("Invalid record status.");
+      update.hidden = body.hidden;
     }
     if (!Object.keys(update).length) throw new GameError("No changes supplied.");
     await editRecord(body.id, body.revision as number, update);
+    return respond({ ok: true });
+  } catch (error) { return failure(error); }
+}
+export async function DELETE(request: Request) {
+  try {
+    requireAdmin(request);
+    await rateLimit(`admin-edit:${request.headers.get("x-forwarded-for") ?? "local"}`, 60);
+    const body = await jsonBody(request);
+    if (typeof body.id !== "string" || !Number.isInteger(body.revision) || (body.revision as number) < 0) throw new GameError("Invalid record revision.");
+    await deleteRecord(body.id, body.revision as number);
     return respond({ ok: true });
   } catch (error) { return failure(error); }
 }

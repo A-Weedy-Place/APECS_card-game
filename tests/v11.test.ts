@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRun, publicRun, takeAction, takeCardBatch, takeSpecialAction } from "../src/game/engine";
 import { V11_BY_ID, V11_CARDS } from "../src/game/v11-catalogue";
-import { v11Locked, v11Approval, v11Offers } from "../src/game/v11";
-import { V11_ROUND_LABELS } from "../src/game/v11-schedule";
+import { v11Create, v11Locked, v11Approval, v11Offers } from "../src/game/v11";
+import { V11_ROUND_LABELS, V12_VERSION } from "../src/game/v11-schedule";
+import { yearsFor } from "../src/game/config";
 import { CONTROLS, validSettings } from "../src/game/policy-catalogue";
 import { settingsFor } from "../src/game/catalogues";
 import { initialPuffin, initialReef, stepPuffin, stepReef, gateIndices, iceGate, replaySurvival, endlessCoins, validArcadeInput } from "../src/game/arcade";
@@ -16,7 +17,7 @@ import { LEGACY_MODEL_PROFILE, MODEL_PROFILE, MODEL_VERSION, defaultSettings } f
 import { scenarioKey } from "../src/server/model-result";
 process.env.DATABASE_PATH=`./data/v11-cache-${randomUUID()}.sqlite`;
 
-const fresh = (seed = 1) => createRun("new", "Player", "PK", seed);
+const fresh = (seed = 1) => v11Create("new", "Player", "PK", seed);
 const action = (id: string): Decision => ({ kind: "policy", planningRound: 1, year: 2026, cardId: id, title: "Adopted", category: "technology", accepted: true, probability: 100, spent: 0, refund: 0, income: 0, transition: 0, effects: {} });
 
 test("0.11 has 26 model cards, nine support cards and reachable whole-slider targets", () => {
@@ -63,6 +64,24 @@ test("three stages have nine decisions and two coin-only arcade stops", () => {
   assert.equal(state.round, 11);
   assert.equal(state.score, null);
   assert.ok(validSettings(settingsFor(state.history)));
+});
+
+test("new games play four policy rounds per stage and finish after both arcade breaks", () => {
+  let state = createRun("current", "Player", "PK", 1);
+  assert.equal(state.rulesVersion, V12_VERSION);
+  const visited: string[] = [];
+  while (!state.finishedAt) {
+    const view = publicRun(state);
+    assert.equal(view.totalRounds, 14);
+    visited.push(view.specialRound ?? view.phase);
+    state = takeAction(state, "save");
+    assert.ok(state.round <= 14);
+  }
+  assert.deepEqual(visited, ["Foundation", "Foundation", "Foundation", "Foundation", "flight",
+    "Momentum", "Momentum", "Momentum", "Momentum", "cleanup",
+    "Transformation", "Transformation", "Transformation", "Transformation"]);
+  assert.equal(state.round, 14);
+  assert.equal(state.score, null);
 });
 
 test("offers stay valid, ordinary packages settle once and complete model settings remain reproducible", () => {
@@ -121,7 +140,7 @@ test("new model results stay separate while saved 26.10 results remain available
   const settings=defaultSettings(),now=new Date().toISOString(),db=new DatabaseSync(process.env.DATABASE_PATH!);
   try{
     for(const [session,state] of [[old,v10Create(old.run.id,"Old Player","AQ",1)],[current,fresh()]] as const){
-      state.id=session.run.id;state.finishedAt=now;state.round=state.rulesVersion==="prototype-0.11"?11:10;
+      state.id=session.run.id;state.finishedAt=now;state.round=yearsFor(state.rulesVersion).length;
       db.prepare("UPDATE runs SET state=?,finished_at=? WHERE id=?").run(JSON.stringify(state),now,session.run.id);
     }
     // Synthetic results are restricted to this isolated test database.

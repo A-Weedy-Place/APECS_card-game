@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { PublicRun } from "@/game/types";
+import { stagedRules, stageSchedule } from "@/game/v11-schedule";
 
 function tutorialSteps({ resources, nextIncome, redrawCost, rulesVersion }: PublicRun) {
   const shufflePrice = `${redrawCost} ${redrawCost === 1 ? "coin" : "coins"}`;
@@ -14,7 +15,7 @@ function tutorialSteps({ resources, nextIncome, redrawCost, rulesVersion }: Publ
     { target: "play", title: "Play", text: "Spend the shown coins and submit your selected cards. Each card has its own chance of passing." },
     { target: "shuffle", title: "Shuffle", text: `Pay ${shufflePrice} for a new hand. You stay in the same round, and the next shuffle that round costs one more coin.` },
     { target: "skip", title: "Skip", text: "End the round without playing a card. Keep any coins you have left for later rounds." },
-    { target: "rounds", title: "Rounds", text: rulesVersion==="prototype-0.11"?"Play nine policy rounds in three stages. Stars are survival games. Stage 2 unlocks upgrades to policies you passed.":"Rounds 4 and 7 are arcade breaks. After round 10, your policies determine your 2100 temperature result." },
+    { target: "rounds", title: "Rounds", text: stagedRules(rulesVersion) ? `Play ${stageSchedule(rulesVersion).policyRounds} policy rounds in three stages. Stars are survival games. Stage 2 unlocks upgrades to policies you passed.` : "Rounds 4 and 7 are arcade breaks. After round 10, your policies determine your 2100 temperature result." },
     { target: "library", title: "Library", text: "Browse all the cards, see what they do, and check what unlocks each upgrade." },
     { target: "history", title: "History", text: "See which cards passed or failed and review your current En-ROADS settings." },
   ];

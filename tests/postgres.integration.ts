@@ -18,6 +18,7 @@ test("real Postgres ownership, concurrent quota/actions, admin audit, private ro
     await admin.query("DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF; END $$");
     await admin.query(await readFile("supabase/migrations/20261102180114_apecs_hosted_storage.sql","utf8"));
     await admin.query(await readFile("supabase/migrations/20261102190833_model_worker_queue.sql","utf8"));
+    await admin.query(await readFile("supabase/migrations/20261107204917_permanent_game_deletion_and_manual_rank.sql","utf8"));
     await admin.query("ALTER ROLE apecs_server PASSWORD 'apecs-local-runtime-only'");
     const runtime=new URL(adminUrl);runtime.username="apecs_server";runtime.password="apecs-local-runtime-only";process.env.DATABASE_URL=runtime.toString();
     const cookie=randomBytes(32).toString("hex"),requestId=randomUUID();
@@ -33,14 +34,14 @@ test("real Postgres ownership, concurrent quota/actions, admin audit, private ro
     assert.equal((await store.adminRun(first.run.id)).nickname,"Concurrent Start");assert.equal((await store.getRun(first.run.id,first.token)).nickname,"Corrected Player");
     await store.rateLimit("quota-test",1);await assert.rejects(store.rateLimit("quota-test",1),/Too many/);
     const players=await Promise.all(Array.from({length:30},(_,i)=>store.startRun(`Load ${i}`,"AQ",{token:randomBytes(32).toString("hex"),requestId:randomUUID()})));
-    const timings:number[]=[];for(let round=0;round<11;round++)await Promise.all(players.map(async p=>{const start=performance.now();p.run=await store.actOnRun(p.run.id,p.token,"save",p.run.revision,randomUUID());timings.push(performance.now()-start);}));
+    const timings:number[]=[];for(let round=0;round<players[0].run.totalRounds!;round++)await Promise.all(players.map(async p=>{const start=performance.now();p.run=await store.actOnRun(p.run.id,p.token,"save",p.run.revision,randomUUID());timings.push(performance.now()-start);}));
     assert.ok(players.every(p=>p.run.finishedAt&&p.run.score===null));assert.deepEqual(await store.leaderboard(),[]);
     const settings=await store.modelSettings(players[0].run.id,players[0].token);
     const result={temperatureC:3.3,modelVersion:MODEL_VERSION,profile:MODEL_PROFILE,provider:"public-ui-experimental" as const,sourceUrl:`https://en-roads.climateinteractive.org/scenario.html?v=${MODEL_VERSION}`,evaluatedAt:new Date().toISOString(),readback:settings};
     // Synthetic validation fixture, only in this isolated database; never a scientific result.
     await store.saveModelStatus(settings,"complete",result);assert.equal((await store.leaderboard()).length,30);
     await assert.rejects(store.editRecord(players[0].run.id,0,{score:1}),/cannot be edited/);
-    const activity=await store.adminActivity(players[0].run.id);assert.equal(activity.events.length,11);assert.ok(activity.events.every(e=>e.at));assert.ok(!JSON.stringify(activity).includes("group_hash"));
+    const activity=await store.adminActivity(players[0].run.id);assert.equal(activity.events.length,15);assert.ok(activity.events.every(e=>e.at));assert.ok(!JSON.stringify(activity).includes("group_hash"));
     const queuedSettings={...settings,coal:CONTROLS.find(c=>c.id==="coal")!.max};
     await Promise.all([enqueueModel(queuedSettings),enqueueModel(queuedSettings)]);
     const jobs=await Promise.all([claimModel(),claimModel()]);assert.equal(jobs.filter(Boolean).length,1);const job=jobs.find(Boolean)!;
@@ -51,8 +52,11 @@ test("real Postgres ownership, concurrent quota/actions, admin audit, private ro
     const permissions=await admin.query("SELECT has_schema_privilege('anon','apecs','USAGE') AS anon,has_schema_privilege('authenticated','apecs','USAGE') AS authenticated,(SELECT count(*)::int FROM pg_tables WHERE schemaname='apecs' AND rowsecurity) AS rls");assert.deepEqual(permissions.rows[0],{anon:false,authenticated:false,rls:10});
     await admin.query("ALTER ROLE apecs_worker PASSWORD 'apecs-worker-test-only'");const workerUrl=new URL(runtime);workerUrl.username="apecs_worker";workerUrl.password="apecs-worker-test-only";
     const worker=new Pool({connectionString:workerUrl.toString(),max:1});try{await worker.query("SELECT * FROM apecs.model_jobs");await assert.rejects(worker.query("SELECT * FROM apecs.runs"),/permission denied/);await assert.rejects(worker.query("UPDATE apecs.browser_passes SET used=0"),/permission denied/);}finally{await worker.end();}
-    const runtimePool=new Pool({connectionString:runtime.toString(),max:1});try{await assert.rejects(runtimePool.query("DELETE FROM apecs.runs"),/permission denied/);await assert.rejects(runtimePool.query("CREATE TABLE apecs.unauthorised(id int)"),/permission denied/);}finally{await runtimePool.end();}
-    assert.equal(Object.keys(settings).length,CONTROLS.length);timings.sort((a,b)=>a-b);console.log(`Postgres 30 players /330 actions: p95 ${Math.round(timings[Math.floor(timings.length*.95)])}ms; max ${Math.round(timings.at(-1)!)}ms; direct DB, no model jobs.`);
+    const runtimePool=new Pool({connectionString:runtime.toString(),max:1});try{await assert.rejects(runtimePool.query("DELETE FROM apecs.model_evaluations"),/permission denied/);await assert.rejects(runtimePool.query("CREATE TABLE apecs.unauthorised(id int)"),/permission denied/);}finally{await runtimePool.end();}
+    await store.deleteRecord(first.run.id, 2);
+    await assert.rejects(store.getRun(first.run.id, first.token), /not found/);
+    await assert.rejects(store.startRun("Concurrent Start", "PK", { token: cookie, requestId }), /permanently deleted/);
+    assert.equal(Object.keys(settings).length,CONTROLS.length);timings.sort((a,b)=>a-b);console.log(`Postgres 30 players /420 actions: p95 ${Math.round(timings[Math.floor(timings.length*.95)])}ms; max ${Math.round(timings.at(-1)!)}ms; direct DB, no model jobs.`);
   }finally{
     const global=globalThis as typeof globalThis&{copPostgres?:Map<string,Pool>};for(const connection of global.copPostgres?.values()??[])await connection.end();global.copPostgres?.clear();
     await admin.end();await root.query(`DROP DATABASE ${database}`);await root.end();delete process.env.DATABASE_URL;

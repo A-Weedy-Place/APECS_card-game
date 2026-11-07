@@ -3,7 +3,7 @@ import { Check, X } from "lucide-react";
 import { CONTROLS, controlFor, defaultSettings, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
 import type { Decision, LibraryCard, PublicRun } from "@/game/types";
 import { CardArt } from "./card-art";
-import { v11RoundLabel } from "@/game/v11-schedule";
+import { stagedRules, stageRoundLabel } from "@/game/v11-schedule";
 import type { PolicyCardV11 } from "@/game/v11-catalogue";
 
 type JournalCard = LibraryCard & PolicyCardV11;
@@ -13,7 +13,7 @@ const colours: Record<string, string> = {
   politics: "#ca9dff", economics: "#eabc5c", awareness: "#5ed5cf",
 };
 function areasFor(version:string) {
-  const controls=CONTROLS.map(control=>({...control,group:version!=="prototype-0.11"?control.group:
+  const controls=CONTROLS.map(control=>({...control,group:!stagedRules(version)?control.group:
     control.group==="Energy"?"Energy supply":control.id.startsWith("transport-")?"Transport":control.id.startsWith("buildings-")?"Buildings & industry":control.group==="Removal"?"Carbon dioxide removal":control.group}));
   return [...new Set(controls.map(control=>control.group))].map(name=>({name,controls:controls.filter(control=>control.group===name)}));
 }
@@ -96,7 +96,7 @@ export function PolicyHistory({ run, cards, onInspect }: {
         {Array.from({ length: run.round }, (_, index) => {
           const round = index + 1;
           const decisions = actions.filter(action => action.planningRound === round);
-          const label=run.rulesVersion==="prototype-0.11"?v11RoundLabel(index):String(round);
+          const label=stagedRules(run.rulesVersion)?stageRoundLabel(run.rulesVersion,index):String(round);
           return <section key={round} className="policy-log-round" aria-label={`Round ${label}`}>
             <h4>{label==="★"?"Arcade ★":`Round ${label}`}</h4>
             {decisions.length ? <ul>{decisions.map(decision => (

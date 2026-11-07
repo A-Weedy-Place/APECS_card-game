@@ -23,6 +23,7 @@ export const adminRecords = (...args: Parameters<Store["adminRecords"]>) => call
 export const adminRun = (...args: Parameters<Store["adminRun"]>) => call("adminRun", ...args);
 export const adminActivity = (...args: Parameters<Store["adminActivity"]>) => call("adminActivity", ...args);
 export const editRecord = (...args: Parameters<Store["editRecord"]>) => call("editRecord", ...args);
+export const deleteRecord = (...args: Parameters<Store["deleteRecord"]>) => call("deleteRecord", ...args);
 export const moderate = (...args: Parameters<Store["moderate"]>) => call("moderate", ...args);
 export const leaderboard = (...args: Parameters<Store["leaderboard"]>) => call("leaderboard", ...args);
 export const displayUrl = () => call("displayUrl");

@@ -1,7 +1,8 @@
 import { defaultSettings, POLICY_BY_ID, POLICY_CARDS, type PolicyCardV9 } from "./policy-catalogue";
 import { V11_BY_ID, V11_CARDS } from "./v11-catalogue";
+import { stagedRules } from "./v11-schedule";
 
-export const catalogueFor = (version: string) => version === "prototype-0.11"
+export const catalogueFor = (version: string) => stagedRules(version)
   ? { cards: V11_CARDS, byId: V11_BY_ID }
   : { cards: POLICY_CARDS, byId: POLICY_BY_ID };
 

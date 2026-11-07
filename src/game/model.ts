@@ -1,4 +1,5 @@
 import type { Decision, Projection } from "./types";
+import { stagedRules } from "./v11-schedule";
 
 export interface ClimateAdapter {
   readonly id: string;
@@ -29,7 +30,7 @@ export const demoAdapter: ClimateAdapter = {
 export const climateAdapter: ClimateAdapter = demoAdapter;
 
 export function projectFor(history: Decision[], rulesVersion: string): Projection {
-  if(modelRules(rulesVersion))return {kind:"pending",model:"En-ROADS awaiting evaluation",version:rulesVersion==="prototype-0.11"?"26.11.0":"26.10.0",trajectory:[],caveat:"No temperature has been calculated. Evaluate the full scenario; social and financial values are game assumptions."};
+  if(modelRules(rulesVersion))return {kind:"pending",model:"En-ROADS awaiting evaluation",version:stagedRules(rulesVersion)?"26.11.0":"26.10.0",trajectory:[],caveat:"No temperature has been calculated. Evaluate the full scenario; social and financial values are game assumptions."};
   if (["prototype-0.5", "prototype-0.6", "prototype-0.7", "prototype-0.8"].includes(rulesVersion)) {
     const transition = history.reduce((sum, action) => sum + action.transition, 0);
     return { ...demoAdapter.project([]), version: rulesVersion.replace("prototype-", ""), pressure: Math.max(0, Math.round(100 - transition / 150 * 100)), trajectory: [], caveat: "2026 policy package: game points, not a climate forecast. No physical time series or 2100 temperature has been calculated. En-ROADS input targets are documented separately; the licensed model is not connected." };

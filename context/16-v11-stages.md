@@ -1,5 +1,11 @@
 # 0.11: 35 cards and three stages — 2026-11-05
 
+## 0.12 schedule and calculation update — 2026-11-08
+
+New games use 4 policy rounds, Flappy Flight, 4 policy rounds, Reef Rescue, then 4 policy rounds. The 14 internal steps are versioned in `v11-schedule.ts`. Saved 0.11 keeps the original 11 steps and existing arcade inputs. Stages, offer eligibility, approval fatigue, settlement, the timeline, tutorial and history use the saved version’s schedule. Verified 0.11 and 0.12 results can appear together. Automatic rank still uses displayed temperature then play time. The admin can give a verified result a labelled manual position.
+
+The public leaderboard polls every 5 seconds while visible. A queued result now says “Waiting for the model.” The laptop worker was offline with one queued job. Restarting it completed that job at 2.9°C. The updated public UI bridge uses a slider-track click for large changes and keyboard steps for exact values. It still reopens the official URL and verifies all 19 inputs. The recovered package took 12.8 seconds in a cold retest and matched 2.9°C. A separate 19-control package took 14.6 seconds and matched every input. These are observed sample times. The laptop still must stay online to process uncached jobs.
+
 User requested a smaller catalogue tied to En-ROADS controls, nine policy rounds in three groups, two endless skill breaks, first-step prerequisites, mutually exclusive nuclear choices, severe scenario-risk penalties and three gold support rares. Existing saved games keep their original engines. `engine.ts` dispatches0.11 before the shared model-family0.9 guard. Current source: `v11.ts`, `v11-catalogue.ts`, `v11-schedule.ts`; public reference: `public/card-guide.md`.
 
 ## Schedule and economy

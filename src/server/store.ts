@@ -7,7 +7,8 @@ import type { AdminActivity, AdminData, AdminRecord, AttemptStatus, LeaderboardE
 import { journalModeFor } from "./database-config";
 import { RULES_VERSION } from "@/game/config";
 import { settingsFor } from "@/game/catalogues";
-import { compareResults } from "@/game/ranking";
+import { orderLeaderboard } from "@/game/ranking";
+import { V11_VERSION, stagedRules } from "@/game/v11-schedule";
 import { scenarioKey, validateModelResult, type ModelResult } from "./model-result";
 import { LEGACY_MODEL_PROFILE } from "@/game/policy-catalogue";
 import { evaluationFromRow } from "./evaluation";
@@ -45,11 +46,12 @@ function db() {
     connection.exec(`
       CREATE TABLE IF NOT EXISTS run_controls (
         run_id TEXT PRIMARY KEY REFERENCES runs(id), display_name TEXT, country TEXT,
-        score_override INTEGER, deleted INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 0
+        score_override INTEGER, deleted INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 0,
+        manual_rank INTEGER CHECK (manual_rank BETWEEN 1 AND 10)
       );
       CREATE TABLE IF NOT EXISTS browser_passes (group_hash TEXT PRIMARY KEY, used INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS run_attempts (
-        group_hash TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT NOT NULL REFERENCES runs(id),
+        group_hash TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT REFERENCES runs(id),
         PRIMARY KEY(group_hash, request_id)
       );
       CREATE TABLE IF NOT EXISTS admin_audit (id TEXT PRIMARY KEY, run_id TEXT, action TEXT NOT NULL, changes TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -60,19 +62,40 @@ function db() {
     `);
     const columns = connection.prepare("PRAGMA table_info(actions)").all() as {name:string}[];
     if (!columns.some(column => column.name === "created_at")) connection.exec("ALTER TABLE actions ADD COLUMN created_at TEXT");
+    const controlColumns = connection.prepare("PRAGMA table_info(run_controls)").all() as {name:string}[];
+    if (!controlColumns.some(column => column.name === "manual_rank")) {
+      connection.exec("ALTER TABLE run_controls ADD COLUMN manual_rank INTEGER CHECK (manual_rank BETWEEN 1 AND 10)");
+    }
+    const attemptColumns = connection.prepare("PRAGMA table_info(run_attempts)").all() as {name:string;notnull:number}[];
+    if (attemptColumns.some(column => column.name === "run_id" && column.notnull)) {
+      connection.exec("BEGIN IMMEDIATE");
+      try {
+        connection.exec(`
+          ALTER TABLE run_attempts RENAME TO previous_run_attempts;
+          CREATE TABLE run_attempts (
+            group_hash TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT REFERENCES runs(id),
+            PRIMARY KEY(group_hash, request_id)
+          );
+          INSERT INTO run_attempts SELECT group_hash, request_id, run_id FROM previous_run_attempts;
+          DROP TABLE previous_run_attempts;
+          CREATE INDEX attempts_run ON run_attempts(run_id);
+          COMMIT;
+        `);
+      } catch (error) { connection.exec("ROLLBACK"); throw error; }
+    }
     upgraded.add(connection);
   }
   return connection;
 }
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 type Row = { id: string; token_hash: string; state: string; hidden: number };
-type Control = { display_name: string | null; country: string | null; score_override: number | null; deleted: number; revision: number };
+type Control = { display_name: string | null; country: string | null; score_override: number | null; deleted: number; revision: number; manual_rank: number | null };
 const controls = (id: string) => db().prepare("SELECT * FROM run_controls WHERE run_id = ?").get(id) as Control | undefined;
 function visibleRun(state: RunState | PublicRun): PublicRun {
   const control = controls(state.id);
   if (control?.deleted) throw new GameError("This game was removed by the organiser.", 410);
   const visible = "phase" in state ? redactPublicRun(state as PublicRun) : publicRun(state as RunState);
-  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?modelStatus(settingsFor(visible.history),visible.rulesVersion!=="prototype-0.11"):undefined;
+  const evaluation=modelRules(visible.rulesVersion)&&visible.finishedAt?modelStatus(settingsFor(visible.history),!stagedRules(visible.rulesVersion)):undefined;
   return { ...visible, nickname: control?.display_name ?? visible.nickname, country: control?.country ?? visible.country, score: modelRules(visible.rulesVersion)?null:visible.finishedAt ? control?.score_override ?? visible.score : visible.score,
     ...(evaluation?{modelEvaluation:evaluation,...(evaluation.status==="complete"?{projection:{...visible.projection,kind:"model" as const,model:"En-ROADS",version:evaluation.modelVersion!,temperatureC:evaluation.temperatureC,caveat:"Experimental public-UI evaluation of the full scenario. Conditional projection, not a prediction or vendor endorsement."}}:{})}:{}) };
 }
@@ -98,9 +121,14 @@ export function startRun(nickname: string, country: string, browser?: { token: s
   try {
     let token: string | undefined;
     if (browser) {
-      const previous = connection.prepare("SELECT run_id FROM run_attempts WHERE group_hash = ? AND request_id = ?").get(group, browser.requestId) as { run_id: string } | undefined;
+      const previous = connection.prepare("SELECT run_id FROM run_attempts WHERE group_hash = ? AND request_id = ?").get(group, browser.requestId) as { run_id: string | null } | undefined;
       token = createHmac("sha256", browser.token).update(browser.requestId).digest("hex");
-      if (previous) { const run = getRun(previous.run_id, token); connection.exec("COMMIT"); return { run, token }; }
+      if (previous) {
+        if (previous.run_id === null) throw new GameError("This game was permanently deleted.", 410);
+        const run = getRun(previous.run_id, token);
+        connection.exec("COMMIT");
+        return { run, token };
+      }
       if (!attemptStatus(browser.token).remaining) throw new GameError("Both plays are used. You can still view your history and the leaderboard.", 403);
     }
     const name = cleanPlayerName(nickname);
@@ -143,8 +171,16 @@ export function actOnRun(id: string, token: string, cardId: string | string[] | 
 }
 export function leaderboard(includeHidden = false): LeaderboardEntry[] {
   if(!includeHidden){
-    const rows=db().prepare("SELECT r.id,r.state,c.display_name,c.country FROM runs r LEFT JOIN run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND r.hidden=0 AND COALESCE(c.deleted,0)=0 AND json_extract(r.state,'$.rulesVersion')=?").all(RULES_VERSION) as (Row & Partial<Control>)[];
-    return rows.flatMap(row=>{const state=JSON.parse(row.state) as RunState;const model=modelStatus(settingsFor(state.history),state.rulesVersion!=="prototype-0.11");return model.status!=="complete"?[]:[{id:row.id,nickname:row.display_name??state.nickname,country:row.country??state.country,score:model.temperatureC!,temperatureC:model.temperatureC!,elapsedMs:state.elapsedMs??0,finishedAt:state.finishedAt!,rulesVersion:state.rulesVersion}];}).sort(compareResults).slice(0,100);
+    const rows = db().prepare("SELECT r.id,r.state,c.display_name,c.country,c.manual_rank FROM runs r LEFT JOIN run_controls c ON c.run_id=r.id WHERE r.finished_at IS NOT NULL AND r.hidden=0 AND COALESCE(c.deleted,0)=0 AND json_extract(r.state,'$.rulesVersion') IN (?,?)").all(RULES_VERSION, V11_VERSION) as (Row & Partial<Control>)[];
+    const entries = rows.flatMap(row => {
+      const state = JSON.parse(row.state) as RunState;
+      const model = modelStatus(settingsFor(state.history));
+      if (model.status !== "complete") return [];
+      return [{ id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country,
+        score: model.temperatureC!, temperatureC: model.temperatureC!, elapsedMs: state.elapsedMs ?? 0,
+        finishedAt: state.finishedAt!, rulesVersion: state.rulesVersion, manualRank: row.manual_rank ?? undefined }];
+    });
+    return orderLeaderboard(entries).slice(0, 100);
   }
   const rows = db().prepare(`SELECT r.id, r.state, r.hidden, c.display_name, c.country, c.score_override FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id WHERE r.score IS NOT NULL AND COALESCE(c.deleted, 0) = 0 ${includeHidden ? "" : "AND r.hidden = 0 AND json_extract(r.state, '$.rulesVersion') = ?"} ORDER BY COALESCE(c.score_override, r.score) DESC, r.finished_at ASC LIMIT 100`).all(...(includeHidden ? [] : [RULES_VERSION])) as (Row & Partial<Control>)[];
   return rows.map(row => {
@@ -167,14 +203,26 @@ export function adminRecords(page = 1, query = ""): AdminData {
   const args = query ? [query.toLowerCase(), query] : [];
   const total = (db().prepare(`SELECT COUNT(*) AS count FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id ${where}`).get(...args) as { count: number }).count;
   const pages = Math.max(1, Math.ceil(total / 30)); page = Math.max(1, Math.min(pages, Math.floor(page)));
-  const rows = db().prepare(`SELECT r.*, c.display_name, c.country, c.score_override, COALESCE(c.deleted,0) AS deleted, COALESCE(c.revision,0) AS control_revision FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id ${where} ORDER BY r.created_at DESC, r.id LIMIT 30 OFFSET ?`).all(...args, (page - 1) * 30) as (Row & Control & { control_revision: number })[];
-  const records: AdminRecord[] = rows.map(row => { const state = JSON.parse(row.state) as RunState; const model=modelRules(state.rulesVersion)&&state.finishedAt?modelStatus(settingsFor(state.history),state.rulesVersion!=="prototype-0.11"):null;return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country, score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted, finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion, revision: row.control_revision,elapsedMs:state.elapsedMs,...(model?.status==="complete"?{temperatureC:model.temperatureC}:{}) }; });
+  const rows = db().prepare(`SELECT r.*, c.display_name, c.country, c.score_override, c.manual_rank, p.used AS plays_used,
+    COALESCE(c.deleted,0) AS deleted, COALESCE(c.revision,0) AS control_revision
+    FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id
+    LEFT JOIN run_attempts a ON a.run_id = r.id LEFT JOIN browser_passes p ON p.group_hash = a.group_hash
+    ${where} ORDER BY r.created_at DESC, r.id LIMIT 30 OFFSET ?`).all(...args, (page - 1) * 30) as (Row & Control & { control_revision: number; plays_used: number | null })[];
+  const records: AdminRecord[] = rows.map(row => {
+    const state = JSON.parse(row.state) as RunState;
+    const model = modelRules(state.rulesVersion) && state.finishedAt ? modelStatus(settingsFor(state.history), !stagedRules(state.rulesVersion)) : null;
+    return { id: row.id, nickname: row.display_name ?? state.nickname, country: row.country ?? state.country,
+      score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted,
+      finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion,
+      revision: row.control_revision, elapsedMs: state.elapsedMs, manualRank: row.manual_rank ?? undefined,
+      playsUsed: row.plays_used ?? undefined, temperatureC: model?.status === "complete" ? model.temperatureC : undefined };
+  });
   return { records, total, page, pages, stats: stats(), entries: leaderboard(true) };
 }
 export function adminRun(id: string) {
   const row = db().prepare("SELECT state FROM runs WHERE id = ?").get(id) as { state: string } | undefined;
   if (!row) throw new GameError("Game not found.", 404);
-  const state=JSON.parse(row.state) as RunState;return {...publicRun(state),...(modelRules(state.rulesVersion)&&state.finishedAt?{modelEvaluation:modelStatus(settingsFor(state.history),state.rulesVersion!=="prototype-0.11")}:{})};
+  const state=JSON.parse(row.state) as RunState;return {...publicRun(state),...(modelRules(state.rulesVersion)&&state.finishedAt?{modelEvaluation:modelStatus(settingsFor(state.history),!stagedRules(state.rulesVersion))}:{})};
 }
 export function adminActivity(id: string): AdminActivity {
   const run = adminRun(id);
@@ -205,7 +253,7 @@ export function rateLimit(key:string,maximum=30,windowMs=60000) {
   const row=connection.prepare("INSERT INTO rate_limits VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN until_ms<=? THEN 1 ELSE count+1 END, until_ms=CASE WHEN until_ms<=? THEN excluded.until_ms ELSE until_ms END RETURNING count").get(hash(key),1,now+windowMs,now,now) as {count:number};
   if(row.count>maximum)throw new GameError("Too many requests. Please wait and try again.",429);
 }
-export function editRecord(id: string, expectedRevision: number, update: { nickname?: string; country?: string; score?: number | null; hidden?: boolean; deleted?: boolean }) {
+export function editRecord(id: string, expectedRevision: number, update: { nickname?: string; country?: string; score?: number | null; manualRank?: number | null; hidden?: boolean; deleted?: boolean }) {
   const connection = db(); connection.exec("BEGIN IMMEDIATE");
   try {
     const row = connection.prepare("SELECT state, hidden FROM runs WHERE id = ?").get(id) as { state: string; hidden: number } | undefined;
@@ -219,10 +267,31 @@ export function editRecord(id: string, expectedRevision: number, update: { nickn
     }
     if(modelRules(state.rulesVersion)&&update.score!==undefined)throw new GameError("Model temperatures cannot be edited as game points.");
     if (update.score !== undefined && (!state.finishedAt || update.score !== null && (!Number.isInteger(update.score) || update.score < 0 || update.score > 1000))) throw new GameError("Only completed games accept a score correction from 0 to 1000.");
-    const next = { display_name: update.nickname ?? previous?.display_name ?? null, country: update.country ?? previous?.country ?? null, score_override: update.score === undefined ? previous?.score_override ?? null : update.score, deleted: update.deleted === undefined ? previous?.deleted ?? 0 : Number(update.deleted), revision: expectedRevision + 1 };
-    connection.prepare("INSERT INTO run_controls VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(run_id) DO UPDATE SET display_name=excluded.display_name, country=excluded.country, score_override=excluded.score_override, deleted=excluded.deleted, revision=excluded.revision").run(id, next.display_name, next.country, next.score_override, next.deleted, next.revision);
+    if (update.manualRank != null && (!stagedRules(state.rulesVersion) || !state.finishedAt || modelStatus(settingsFor(state.history)).status !== "complete")) {
+      throw new GameError("Only a verified leaderboard result can be placed manually.");
+    }
+    const next = { display_name: update.nickname ?? previous?.display_name ?? null, country: update.country ?? previous?.country ?? null, score_override: update.score === undefined ? previous?.score_override ?? null : update.score, deleted: update.deleted === undefined ? previous?.deleted ?? 0 : Number(update.deleted), revision: expectedRevision + 1, manual_rank: update.manualRank === undefined ? previous?.manual_rank ?? null : update.manualRank };
+    connection.prepare(`INSERT INTO run_controls(run_id,display_name,country,score_override,deleted,revision,manual_rank) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(run_id) DO UPDATE SET display_name=excluded.display_name, country=excluded.country, score_override=excluded.score_override,
+      deleted=excluded.deleted, revision=excluded.revision, manual_rank=excluded.manual_rank`).run(id, next.display_name, next.country, next.score_override, next.deleted, next.revision, next.manual_rank);
     if (update.hidden !== undefined) connection.prepare("UPDATE runs SET hidden = ? WHERE id = ?").run(Number(update.hidden), id);
     connection.prepare("INSERT INTO admin_audit VALUES (?, ?, ?, ?, ?)").run(randomUUID(), id, update.deleted ? "trash" : update.deleted === false ? "restore" : "edit", JSON.stringify({ before: { ...previous, hidden: !!row.hidden }, after: { ...next, hidden: update.hidden ?? !!row.hidden } }), new Date().toISOString());
+    connection.exec("COMMIT");
+  } catch (error) { connection.exec("ROLLBACK"); throw error; }
+}
+
+export function deleteRecord(id: string, expectedRevision: number) {
+  const connection = db();
+  connection.exec("BEGIN IMMEDIATE");
+  try {
+    if (connection.prepare("SELECT id FROM runs WHERE id = ?").get(id)) {
+      if ((controls(id)?.revision ?? 0) !== expectedRevision) throw new GameError("Record changed. Refresh before deleting.", 409);
+      connection.prepare("UPDATE run_attempts SET run_id = NULL WHERE run_id = ?").run(id);
+      for (const table of ["actions", "run_controls", "admin_audit"]) {
+        connection.prepare(`DELETE FROM ${table} WHERE run_id = ?`).run(id);
+      }
+      connection.prepare("DELETE FROM runs WHERE id = ?").run(id);
+    }
     connection.exec("COMMIT");
   } catch (error) { connection.exec("ROLLBACK"); throw error; }
 }

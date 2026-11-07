@@ -7,7 +7,7 @@ import { playSound, setSoundEnabled, soundEnabled } from "@/lib/sound";
 import { controlFor, guideFor, settingLabel, type PolicyCardV9 } from "@/game/policy-catalogue";
 import type { PolicyCardV11 } from "@/game/v11-catalogue";
 import { catalogueFor } from "@/game/catalogues";
-import { V11_ROUND_LABELS, v11RoundLabel } from "@/game/v11-schedule";
+import { stagedRules, stageSchedule, stageRoundLabel } from "@/game/v11-schedule";
 import { formatTime } from "@/game/ranking";
 import type { AttemptStatus, Decision, LibraryCard, OfferedCard, PublicRun, SpecialCommand } from "@/game/types";
 import { WorldBackground } from "./game-world";
@@ -31,9 +31,13 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  const[run,setRun]=useState(initialRun),[chosen,setChosen]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const[inspect,setInspect]=useState<QuotedPolicy|null>(null),[panel,setPanel]=useState<"Library"|"History"|null>(null),[filter,setFilter]=useState("all"),[stat,setStat]=useState<string|null>(null),[sound,setSound]=useState(true),[notice,setNotice]=useState("");
  const [receipt, setReceipt] = useState<{ round: string; outcomes: Decision[] } | null>(null);
- const modern = run.rulesVersion === "prototype-0.11";
+ const modern = stagedRules(run.rulesVersion);
+ const schedule = stageSchedule(run.rulesVersion);
  const { byId } = catalogueFor(run.rulesVersion);
- const roundLabels = modern ? V11_ROUND_LABELS : Array.from({length:10},(_,index)=>String(index+1));
+ const roundLabels = modern ? schedule.labels : Array.from({length:10},(_,index)=>String(index+1));
+ const roundDescription = run.finishedAt ? "Game complete" : run.specialRound ? "Arcade break" : modern
+  ? `Policy round ${stageRoundLabel(run.rulesVersion, run.round)} of ${schedule.policyRounds}`
+  : `Round ${Math.min(10, run.round + 1)} of 10`;
  const acting=useRef(false),pending=useRef<{key:string;body:Record<string,unknown>}|null>(null);
  const board = useRef<HTMLElement>(null);
  const [tutorial, setTutorial] = useState(false);
@@ -58,7 +62,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
   try{const next=await api<PublicRun>(`/api/runs/${session.id}/actions`,{method:"POST",headers,body:JSON.stringify(pending.current.body)});setRun(next);setChosen([]);setInspect(null);pending.current=null;
    const outcomes = next.lastActions?.filter(action => action.kind !== "round-end") ?? [];
    const policies = outcomes.filter(action => action.kind === "policy");
-   if (Array.isArray(value) && policies.length) setReceipt({ round: modern ? v11RoundLabel(next.round - 1) : String(next.round), outcomes: policies });
+   if (Array.isArray(value) && policies.length) setReceipt({ round: modern ? stageRoundLabel(next.rulesVersion, next.round - 1) : String(next.round), outcomes: policies });
    setNotice(value === "redraw" ? "Shuffled" : policies.length ? "" : outcomes.length ? "Challenge complete" : "Round skipped");
    playSound(value === "redraw" ? "shuffle" : policies.some(action => !action.accepted) ? "fail" : "pass");
   }catch(err){setError((err as Error).message);}finally{acting.current=false;setBusy(false);}
@@ -71,7 +75,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  const pips=(value:number)=>Math.max(0,Math.min(7,Math.round(value/100*7)));
  const explanations:Record<string,string>={economy:`+${run.nextIncome} coins each round. Revenue funds the game budget; it is separate from En-ROADS economic growth.`,support:`Reference approval ${run.generalApproval}%. Politics has the strongest effect on approval. Difficult policies and negotiation fatigue consume support.`,awareness:"Public engagement adds a smaller approval boost. At 60+ it also reduces political effort. Fair transition and inclusive participation help build support; they do not directly cool the planet."};
  return <div className="v9-experience"><WorldBackground/><main ref={board} id="main-content" className={`v9-board ${run.specialRound&&!run.finishedAt?"has-arcade":""}`} aria-label="2026 policy planning">
-  <div className="v9-top"><Clock run={run}/><div className={`v9-rounds ${modern?"v11-rounds":""}`} data-tutorial="rounds" aria-label={modern?`Policy round ${v11RoundLabel(run.round)} of 9`:`Round ${Math.min(10,run.round+1)} of 10`}>{roundLabels.map((label,i)=><span key={i} className={`${i<run.round?"done":""} ${i===run.round?"current":""} ${(modern?label==="★":[3,6].includes(i))?"special":""}`} aria-current={i===run.round?"step":undefined}>{label}</span>)}</div><button className="icon-button" aria-label={sound?"Mute sound":"Enable sound"} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
+  <div className="v9-top"><Clock run={run}/><div className={`v9-rounds ${modern?"v11-rounds":""}`} data-tutorial="rounds" aria-label={roundDescription}>{roundLabels.map((label,i)=><span key={i} className={`${i<run.round?"done":""} ${i===run.round?"current":""} ${(modern?label==="★":[3,6].includes(i))?"special":""}`} aria-current={i===run.round?"step":undefined}>{label}</span>)}</div><button className="icon-button" aria-label={sound?"Mute sound":"Enable sound"} onClick={()=>{setSound(!sound);setSoundEnabled(!sound);}}>{sound?<Volume2 size={18}/>:<VolumeX size={18}/>}</button></div>
   {run.finishedAt?<TemperatureResult run={run} session={session} onHistory={()=>setPanel("History")} onUpdate={evaluation=>setRun(current=>({...current,modelEvaluation:evaluation}))}/>:<>
    <div className="v9-hud"><div className="v9-resources">{(["economy","support","awareness"]as const).map(key=><div key={key} className="v9-resource"><button data-tutorial={key} onClick={()=>setStat(stat===key?null:key)} aria-expanded={stat===key}><span>{resourceNames[key]}</span><span className={`v9-pips ${pips(run.resources[key])<3?"low":""}`} aria-label={`${pips(run.resources[key])} of 7`}>{Array.from({length:7},(_,i)=><i key={i} className={i<pips(run.resources[key])?"lit":""}/>)}</span><b>{key==="economy"?`+${run.nextIncome}/round`:key==="support"?`${run.generalApproval}%`:""}</b></button>{stat===key&&<p className="v9-stat-tip">{explanations[key]}</p>}</div>)}</div><div className="v9-wallet" data-tutorial="coins" aria-label={`${run.resources.credits} coins`}><ClimateCoin/><strong>{run.resources.credits}</strong></div></div>
    {run.electionMandate&&<div className="v9-mandate">Election mandate · 96%+ approval</div>}
@@ -117,7 +121,7 @@ function TemperatureResult({run,session,onHistory,onUpdate}:{run:PublicRun;sessi
  useEffect(()=>{if(!waiting)return;let alive=true;const timer=setInterval(()=>{api<NonNullable<PublicRun["modelEvaluation"]>>(`/api/runs/${session.id}/model`,{headers:{Authorization:`Bearer ${session.token}`}}).then(value=>{if(alive)update.current(value);}).catch(()=>{});},2500);return()=>{alive=false;clearInterval(timer);};},[waiting,session.id,session.token]);
  return <section className="v9-result" aria-label="Your result"><p className="v9-eyebrow">YOUR 2100 SCENARIO</p><h1>{complete?`+${evaluation.temperatureC!.toFixed(1)}°C`:error||evaluation.status==="failed"?"Calculation paused":"Calculating…"}</h1>
  <p className="v9-result-player"><Flag code={run.country}/>{run.nickname}<span>{formatTime(run.elapsedMs??0)}</span></p>
- {!complete&&!error&&evaluation.status!=="failed"&&<p className="v9-result-status"><LoaderCircle className="spin" size={17}/>{evaluation.status==="queued"?"Waiting for the calculation laptop…":"Evaluating your policies…"}</p>}
+ {!complete&&!error&&evaluation.status!=="failed"&&<p className="v9-result-status" role="status"><LoaderCircle className="spin" size={17} aria-hidden="true"/>{evaluation.status==="running"?"Evaluating your policies…":"Waiting for the model…"}</p>}
  {(error||evaluation.error)&&<p role="alert" className="error-message">{error||evaluation.error}</p>}
  {(error||evaluation.status==="failed")&&<button className="game-button gold" onClick={calculate}>Retry calculation</button>}
  <div className="v9-result-actions">{complete&&evaluation.sourceUrl&&<button className="game-button gold" onClick={()=>setShowScenario(true)}>Results & graphs</button>}<Link className="game-button" href="/leaderboard">Leaderboard</Link><button className="game-button" onClick={onHistory}>History</button>{!!attempts?.remaining&&<button className="game-button quiet" onClick={()=>{localStorage.removeItem(SESSION_KEY);window.location.href="/";}}>Play again · {attempts.remaining} left</button>}</div>

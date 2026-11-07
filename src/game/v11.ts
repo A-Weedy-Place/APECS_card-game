@@ -2,7 +2,8 @@ import { GameError } from "./errors";
 import { randomAt } from "./random";
 import { defaultSettings, MODEL_VERSION } from "./policy-catalogue";
 import { V11_BY_ID, V11_CARDS, v11Settings, type PolicyCardV11 } from "./v11-catalogue";
-import { v11Arcade, v11Stage, V11_ROUND_LABELS } from "./v11-schedule";
+import { V11_VERSION, stageArcade, stageNumber, stageSchedule } from "./v11-schedule";
+import { phaseForVersion } from "./config";
 import { endlessCoins, replaySurvival, validArcadeInput } from "./arcade";
 import { v9Create, v9Income } from "./v9";
 import type { Decision, Effects, OfferedCard, PublicRun, RunState, SpecialCommand } from "./types";
@@ -13,7 +14,7 @@ const adopted = (state: RunState, id: string) => state.history.some(action => ac
 export function v11Locked(state: RunState, card: PolicyCardV11): string | null {
   if (!card.repeatable && adopted(state, card.id)) return "Already adopted";
   if (card.excludes && adopted(state, card.excludes)) return "Opposite nuclear policy adopted";
-  if ((card.minStage ?? 1) > v11Stage(state.round)) return "Unlocks in stage 2";
+  if ((card.minStage ?? 1) > stageNumber(state.rulesVersion, state.round)) return "Unlocks in stage 2";
   if (card.requires && !adopted(state, card.requires)) return `Needs ${V11_BY_ID.get(card.requires)!.title}`;
   return null;
 }
@@ -21,7 +22,7 @@ export function v11Locked(state: RunState, card: PolicyCardV11): string | null {
 export function v11Approval(state: RunState, card: PolicyCardV11) {
   if (card.role === "enabler") return 100;
   if (state.electionMandate && card.rarity !== "rare") return Math.min(99, Math.round(96 + state.resources.support * .03));
-  const policyRounds = state.history.filter(action => action.kind === "round-end" && ![4, 8].includes(action.planningRound!)).length;
+  const policyRounds = state.history.filter(action => action.kind === "round-end" && !stageArcade(state.rulesVersion, action.planningRound! - 1)).length;
   return Math.round(Math.max(5, Math.min(95, 47 + state.resources.support * .55 + state.resources.awareness * .12 - card.difficulty - policyRounds * 2)));
 }
 
@@ -39,8 +40,8 @@ export function v11Quote(state: RunState, card: PolicyCardV11): OfferedCard & Po
 }
 
 export function v11Offers(state: RunState, exclude: string[] = []) {
-  if (state.finishedAt || v11Arcade(state.round)) return [];
-  const stage = v11Stage(state.round);
+  if (state.finishedAt || stageArcade(state.rulesVersion, state.round)) return [];
+  const stage = stageNumber(state.rulesVersion, state.round);
   const eligible = V11_CARDS.filter(card => !v11Locked(state, card));
   const ranked = eligible.map((card, index) => {
     const roll = Math.max(.000001, randomAt(state.seed, 2100000 + state.round * 10000 + (state.redrawsUsed ?? 0) * 100 + index));
@@ -67,9 +68,9 @@ export function v11Offers(state: RunState, exclude: string[] = []) {
   return selected.map(card => card.id);
 }
 
-export function v11Create(id: string, name: string, country: string, seed: number): RunState {
+export function v11Create(id: string, name: string, country: string, seed: number, version: string = V11_VERSION): RunState {
   const state = v9Create(id, name, country, seed);
-  state.rulesVersion = "prototype-0.11";
+  state.rulesVersion = version;
   state.projection.version = MODEL_VERSION;
   state.policySettings = defaultSettings();
   state.offers = v11Offers(state);
@@ -90,7 +91,7 @@ function settle(state: RunState, outcomes: Decision[], arcade = false) {
   state.revision++;
   state.redrawsThisTurn = 0;
   delete state.specialAttempt;
-  if (state.round === V11_ROUND_LABELS.length) {
+  if (state.round === stageSchedule(state.rulesVersion).labels.length) {
     state.finishedAt = new Date().toISOString();
     state.elapsedMs = Math.max(0, Date.parse(state.finishedAt) - Date.parse(state.startedAt));
     state.score = null;
@@ -108,7 +109,7 @@ function settle(state: RunState, outcomes: Decision[], arcade = false) {
 }
 
 export function v11Batch(current: RunState, ids: string[]) {
-  if (current.finishedAt || v11Arcade(current.round)) throw new GameError("This is not a policy round.", 409);
+  if (current.finishedAt || stageArcade(current.rulesVersion, current.round)) throw new GameError("This is not a policy round.", 409);
   if (!ids.length || ids.length > 3 || new Set(ids).size !== ids.length || ids.some(id => !current.offers.includes(id))) throw new GameError("Choose offered cards only.");
   const cards = ids.map(id => V11_BY_ID.get(id));
   if (cards.some(card => !card || v11Locked(current, card))) throw new GameError("A prerequisite or stage is missing.");
@@ -138,9 +139,9 @@ export function v11Batch(current: RunState, ids: string[]) {
 
 export function v11Action(current: RunState, id: string) {
   if (current.finishedAt) throw new GameError("The game is complete.", 409);
-  if (["save", "end-round", "skip-special"].includes(id)) return settle(structuredClone(current), [], !!v11Arcade(current.round));
+  if (["save", "end-round", "skip-special"].includes(id)) return settle(structuredClone(current), [], !!stageArcade(current.rulesVersion, current.round));
   if (id !== "redraw") return v11Batch(current, [id]);
-  if (v11Arcade(current.round)) throw new GameError("No cards to shuffle.");
+  if (stageArcade(current.rulesVersion, current.round)) throw new GameError("No cards to shuffle.");
   const cost = (current.redrawsThisTurn ?? 0) + 1;
   if (cost > current.resources.credits) throw new GameError("Not enough coins to shuffle.");
   const state = structuredClone(current);
@@ -154,7 +155,7 @@ export function v11Action(current: RunState, id: string) {
 }
 
 export function v11Special(current: RunState, command: SpecialCommand, now = Date.now()) {
-  const kind = v11Arcade(current.round);
+  const kind = stageArcade(current.rulesVersion, current.round);
   if (!kind || current.finishedAt) throw new GameError("No arcade round is active.", 409);
   if (command.kind === "begin-special") {
     if (current.specialAttempt || command.reward !== "credits") throw new GameError("Arcade rewards are coins only.");
@@ -180,10 +181,11 @@ export function v11Special(current: RunState, command: SpecialCommand, now = Dat
 
 export function v11Public(state: RunState): PublicRun {
   const { seed: _private, offers, ...safe } = state;
-  return { ...safe, phase: v11Stage(state.round) === 1 ? "Foundation" : v11Stage(state.round) === 2 ? "Momentum" : "Transformation", year: 2026,
-    planningYear: 2026, resultYear: 2100, totalRounds: 11, nextIncome: v9Income(state), perks: [], worldEvent: null,
-    canRedraw: !state.finishedAt && !v11Arcade(state.round) && state.resources.credits >= (state.redrawsThisTurn ?? 0) + 1,
+  const specialRound = state.finishedAt ? null : stageArcade(state.rulesVersion, state.round);
+  return { ...safe, phase: phaseForVersion(state.round, state.rulesVersion), year: 2026,
+    planningYear: 2026, resultYear: 2100, totalRounds: stageSchedule(state.rulesVersion).labels.length, nextIncome: v9Income(state), perks: [], worldEvent: null,
+    canRedraw: !state.finishedAt && !specialRound && state.resources.credits >= (state.redrawsThisTurn ?? 0) + 1,
     redrawCost: (state.redrawsThisTurn ?? 0) + 1, offers: offers.map(id => v11Quote(state, V11_BY_ID.get(id)!)),
     library: V11_CARDS.map(card => ({ ...v11Quote(state, card), lockedReason: v11Locked(state, card), taken: adopted(state, card.id) })),
-    specialRound: state.finishedAt ? null : v11Arcade(state.round), generalApproval: v11Approval(state, V11_CARDS[0]), bankLimit: 20, roundSaveBonus: 0 };
+    specialRound, generalApproval: v11Approval(state, V11_CARDS[0]), bankLimit: 20, roundSaveBonus: 0 };
 }

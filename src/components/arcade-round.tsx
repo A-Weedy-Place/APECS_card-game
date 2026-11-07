@@ -5,9 +5,10 @@ import { ArcadeGame, ARCADE_INFO } from "./arcade-game";
 import { playSound } from "@/lib/sound";
 import { endlessCoins, type ArcadeKind, type ArcadeResult } from "@/game/arcade";
 import type { PublicRun, RewardStat, SpecialCommand } from "@/game/types";
+import { stagedRules } from "@/game/v11-schedule";
 const boosts:{id:RewardStat;title:string}[]=[{id:"support",title:"Politics"},{id:"economy",title:"Economy"},{id:"awareness",title:"Awareness"},{id:"justice",title:"Fairness"},{id:"credits",title:"Coins"}];
 export function ArcadeRound({run,busy,onAction,onSkip}:{run:PublicRun;busy:boolean;onAction:(command:SpecialCommand)=>Promise<void>;onSkip:()=>void}) {
-  const endless=run.rulesVersion==="prototype-0.11";
+  const endless=stagedRules(run.rulesVersion);
   const coinsOnly=endless||run.rulesVersion==="prototype-0.10";
   const options=coinsOnly?boosts.filter(b=>b.id==="credits"):run.rulesVersion==="prototype-0.9"?boosts.filter(b=>b.id!=="justice").map(b=>({...b,title:b.id==="economy"?"Revenue":b.id==="awareness"?"Engagement":b.title})):boosts;
   const kind=run.specialRound as ArcadeKind,attempt=run.specialAttempt;

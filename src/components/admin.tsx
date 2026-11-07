@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Download, Eye, EyeOff, History, Pencil, RefreshCw, ShieldCheck, Trash2, Undo2, X } from "lucide-react";
+import { Download, Eye, EyeOff, History, Pencil, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import type { AdminActivity, AdminData, AdminRecord, PublicRun } from "@/game/types";
 import { api } from "@/lib/client";
-import { formatTime } from "@/game/ranking";
+import { DISPLAY_PLACES, formatTime } from "@/game/ranking";
+import { stagedRules, stageRoundLabel } from "@/game/v11-schedule";
 import { COUNTRY_CODES, countryName } from "@/lib/countries";
 import { CountryPicker, Flag } from "./country-picker";
 const countries = COUNTRY_CODES.map(code => ({ code, name: countryName(code) })).sort((a,b) => a.name.localeCompare(b.name));
@@ -13,6 +14,7 @@ export function Admin() {
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false), [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AdminRecord | null>(null), [removing, setRemoving] = useState<AdminRecord | null>(null), [detail, setDetail] = useState<PublicRun | null>(null);
   const [name, setName] = useState(""), [country, setCountry] = useState(""), [score, setScore] = useState(""), [joinUrl, setJoinUrl] = useState("");
+  const [manualRank, setManualRank] = useState("");
   const [activity,setActivity]=useState<AdminActivity|null>(null),[resetting,setResetting]=useState<AdminRecord|null>(null);
   const date=(value:string|null)=>value?new Date(value).toLocaleString():"Time not recorded";
   const dialog = useRef<HTMLDialogElement>(null);
@@ -31,6 +33,36 @@ export function Admin() {
     setBusy(true); setError("");
     try { await api("/api/admin", { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: record.id, revision: record.revision, ...fields }) }); close(); await load(data?.page); }
     catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+  }
+  function openEditor(record: AdminRecord) {
+    setName(record.nickname);
+    setCountry(record.country);
+    setScore(record.score === record.originalScore ? "" : String(record.score ?? ""));
+    setManualRank(record.manualRank?.toString() ?? "");
+    setError("");
+    setEditing(record);
+  }
+  function saveRecord(event: React.FormEvent<HTMLFormElement>, record: AdminRecord) {
+    event.preventDefault();
+    const fields: Record<string, unknown> = { nickname: name, country };
+    if (record.finishedAt && !modelRules(record.rulesVersion)) fields.score = score === "" ? null : Number(score);
+    if (stagedRules(record.rulesVersion) && record.temperatureC !== undefined) fields.manualRank = manualRank === "" ? null : Number(manualRank);
+    void update(record, fields);
+  }
+  async function permanentlyDelete(record: AdminRecord) {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/admin", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id: record.id, revision: record.revision }),
+      });
+      close();
+      setNotice(`${record.nickname}’s record was permanently deleted.`);
+      await load(data?.page);
+    } catch (err) { setError((err as Error).message); }
+    finally { setBusy(false); }
   }
   async function inspect(record: AdminRecord) {
     setBusy(true); setError("");
@@ -56,25 +88,63 @@ export function Admin() {
     const all:AdminRecord[]=[];let page=1,pages=1;
     do{const result=await api<AdminData>(`/api/admin?page=${page}`,{headers:{Authorization:`Bearer ${token}`}});all.push(...result.records);pages=result.pages;page++;}while(page<=pages);
     const field=(value: unknown)=>{let text=String(value??"");if(/^\s*[=+@-]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';};
-    const rows=[["id","name","country","score","original_score","temperature_c","elapsed_ms","started_at","finished_at","status","rules"],...Array.from(new Map(all.map(e=>[e.id,e])).values()).map(e=>[e.id,e.nickname,e.country,e.score,e.originalScore,e.temperatureC,e.elapsedMs,e.startedAt,e.finishedAt,e.deleted?"removed":e.hidden?"hidden":e.finishedAt?"completed":"playing",e.rulesVersion])];
+    const rows=[["id","name","country","score","original_score","temperature_c","manual_rank","elapsed_ms","started_at","finished_at","status","rules"],...Array.from(new Map(all.map(e=>[e.id,e])).values()).map(e=>[e.id,e.nickname,e.country,e.score,e.originalScore,e.temperatureC,e.manualRank,e.elapsedMs,e.startedAt,e.finishedAt,e.deleted?"removed":e.hidden?"hidden":e.finishedAt?"completed":"playing",e.rulesVersion])];
     const url=URL.createObjectURL(new Blob(["\uFEFF"+rows.map(row=>row.map(field).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download="event-records.csv";link.click();URL.revokeObjectURL(url);
     setNotice(`Exported ${all.length} games.`);
     }catch(err){setError((err as Error).message);}finally{setBusy(false);}
   }
   return <div className="admin-shell"><main id="main-content" className="admin-main"><header className="admin-heading"><h1><ShieldCheck size={26}/> Admin</h1><nav><Link href="/">Play</Link><Link href="/leaderboard" target="_blank">Display</Link></nav></header>
     {!data ? <form className="admin-login" onSubmit={event=>{event.preventDefault();void login();}}><label htmlFor="admin-token">Password</label><input type="password" id="admin-token" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required maxLength={256}/><button className="button primary" disabled={busy}>{busy?"Logging in…":"Log in"}</button></form> : <>
-      <div className="admin-stats"><div><strong>{data.stats.runs}</strong><span>All games</span></div><div><strong>{data.stats.completed}</strong><span>Completed</span></div><div><strong>{data.stats.hidden}</strong><span>Hidden</span></div><div><strong>{data.stats.deleted}</strong><span>Removed</span></div></div>
+      <div className="admin-stats"><div><strong>{data.stats.runs}</strong><span>All games</span></div><div><strong>{data.stats.completed}</strong><span>Completed</span></div><div><strong>{data.stats.hidden}</strong><span>Hidden</span></div><div><strong>{data.stats.deleted}</strong><span>Old trash</span></div></div>
       <div className="admin-actions"><button className="button secondary" disabled={busy} onClick={()=>load(data.page)}><RefreshCw size={15}/> Refresh</button><button className="button secondary" disabled={busy} onClick={exportCsv}><Download size={15}/> Export all</button><button className="button secondary" disabled={busy} onClick={resetPlays}>Reset my plays</button><button className="button text-button" onClick={()=>{close();setData(null);setToken("");setPassword("");setNotice("");}}>Log out</button></div>
       <details className="admin-display-settings"><summary>Display QR address</summary><form onSubmit={saveUrl}><label htmlFor="display-url">Game URL reachable by phones</label><input id="display-url" type="url" value={joinUrl} onChange={event=>setJoinUrl(event.target.value)} placeholder="https://…"/><button className="button secondary" disabled={busy}>Save QR</button><small>Blank uses the display’s current address. Localhost cannot be reached by other phones.</small></form></details>
       <form className="admin-search" onSubmit={event=>{event.preventDefault();void load();}}><input disabled={busy} aria-label="Search records" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Name or game ID"/><button className="button secondary" disabled={busy}>Search</button></form>
-      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Name</th><th>Country</th><th>Score</th><th>Status</th><th>Controls</th></tr></thead><tbody>{data.records.map(record=><tr key={record.id} className={record.deleted?"removed-entry":record.hidden?"hidden-entry":""}><td>{record.nickname}<small>{record.rulesVersion} · {record.finishedAt?"Finished":"Round "+(record.round+1)}</small></td><td><Flag code={record.country}/> {countryName(record.country)}</td><td>{modelRules(record.rulesVersion)?record.temperatureC===undefined?"Pending":`+${record.temperatureC.toFixed(1)}°C`:record.score??"—"}{record.elapsedMs!==undefined&&<small>{formatTime(record.elapsedMs)}</small>}{record.score!==record.originalScore&&<small>Originally {record.originalScore}</small>}</td><td>{record.deleted?"Removed":record.hidden?"Hidden":record.finishedAt?"Completed":"Playing"}</td><td><div className="record-controls"><button aria-label={`History for ${record.nickname}`} onClick={()=>inspect(record)} disabled={busy}><History size={16}/></button><button aria-label={`Edit ${record.nickname}`} onClick={()=>{setName(record.nickname);setCountry(record.country);setScore(record.score===record.originalScore?"":String(record.score??""));setEditing(record);}} disabled={busy}><Pencil size={16}/></button>{!record.deleted&&<button aria-label={`${record.hidden?"Restore":"Hide"} ${record.nickname}`} onClick={()=>update(record,{hidden:!record.hidden})} disabled={busy}>{record.hidden?<Eye size={16}/>:<EyeOff size={16}/>}</button>}<button aria-label={`${record.deleted?"Restore removed":"Remove"} ${record.nickname}`} disabled={busy} onClick={()=>record.deleted?update(record,{deleted:false}):setRemoving(record)}>{record.deleted?<Undo2 size={16}/>:<Trash2 size={16}/>}</button></div></td></tr>)}</tbody></table>{!data.records.length&&<p className="empty-panel">No games found.</p>}</div>
+      <div className="admin-table-wrap"><table className="admin-table">
+        <thead><tr><th>Name</th><th>Country</th><th>Score</th><th>Status</th><th>Browser plays</th><th>Controls</th></tr></thead>
+        <tbody>{data.records.map(record => {
+          const round = stagedRules(record.rulesVersion) ? stageRoundLabel(record.rulesVersion, record.round) : String(record.round + 1);
+          return <tr key={record.id} className={record.deleted ? "removed-entry" : record.hidden ? "hidden-entry" : ""}>
+            <td>{record.nickname}<small>{record.rulesVersion} · {record.finishedAt ? "Finished" : round === "★" ? "Arcade break" : `Round ${round}`}</small></td>
+            <td><Flag code={record.country}/> {countryName(record.country)}</td>
+            <td>{modelRules(record.rulesVersion) ? record.temperatureC === undefined ? "Pending" : `+${record.temperatureC.toFixed(1)}°C` : record.score ?? "—"}
+              {record.elapsedMs !== undefined && <small>{formatTime(record.elapsedMs)}</small>}
+              {record.manualRank !== undefined && <small>Manual position {record.manualRank}</small>}
+              {record.score !== record.originalScore && <small>Originally {record.originalScore}</small>}
+            </td>
+            <td>{record.deleted ? "Old trash" : record.hidden ? "Hidden" : record.finishedAt ? "Completed" : "Playing"}</td>
+            <td>{record.playsUsed === undefined ? "Unlinked" : <>
+              <span>{record.playsUsed} / 2 used</span>
+              <button className="button secondary record-reset" aria-label={`Reset plays for ${record.nickname}`} onClick={() => { setError(""); setResetting(record); }} disabled={busy}>Reset plays</button>
+            </>}</td>
+            <td><div className="record-controls">
+              <button title="History" aria-label={`History for ${record.nickname}`} onClick={() => inspect(record)} disabled={busy}><History size={16}/></button>
+              <button title="Edit record" aria-label={`Edit ${record.nickname}`} onClick={() => openEditor(record)} disabled={busy}><Pencil size={16}/></button>
+              {!record.deleted && <button title={record.hidden ? "Show on leaderboard" : "Hide from leaderboard"} aria-label={`${record.hidden ? "Show" : "Hide"} ${record.nickname}`} onClick={() => update(record, { hidden: !record.hidden })} disabled={busy}>{record.hidden ? <Eye size={16}/> : <EyeOff size={16}/>}</button>}
+              <button title="Delete permanently" aria-label={`Delete ${record.nickname}`} disabled={busy} onClick={() => { setError(""); setRemoving(record); }}><Trash2 size={16}/></button>
+            </div></td>
+          </tr>;
+        })}</tbody>
+      </table>{!data.records.length && <p className="empty-panel">No games found.</p>}</div>
       <div className="admin-pagination"><button className="button secondary" disabled={busy||data.page<=1} onClick={()=>load(data.page-1)}>Previous</button><span>{data.page} / {data.pages} · {data.total} games</span><button className="button secondary" disabled={busy||data.page>=data.pages} onClick={()=>load(data.page+1)}>Next</button></div>
     </>}
     {notice&&<p className="admin-notice" role="status">{notice}</p>}{error&&<p className="error-message" role="alert">{error}</p>}
     <dialog ref={dialog} className="journal-dialog admin-dialog" onCancel={close}><button className="dialog-close" aria-label="Close admin details" onClick={close}><X size={20}/></button>
-      {editing&&<form onSubmit={event=>{event.preventDefault();void update(editing,{nickname:name,country,...(editing.finishedAt&&!modelRules(editing.rulesVersion)?{score:score===""?null:Number(score)}:{})});}}><h2>Edit record</h2><label htmlFor="edit-name">Name</label><input id="edit-name" value={name} onChange={event=>setName(event.target.value)} required minLength={2} maxLength={24}/><label htmlFor="country">Country</label><CountryPicker countries={countries} value={country} onChange={setCountry}/>{editing.finishedAt&&!modelRules(editing.rulesVersion)&&<><label htmlFor="edit-score">Score correction</label><input id="edit-score" type="number" min={0} max={1000} step={1} value={score} onChange={event=>setScore(event.target.value)} placeholder={String(editing.originalScore)}/><small>Blank restores the calculated score: {editing.originalScore}.</small></>}<button className="button primary" disabled={busy}>Save changes</button></form>}
-      {removing&&<><h2>Remove {removing.nickname}?</h2><p>The game leaves the board and cannot continue. It stays in admin trash and can be restored.</p><div className="admin-actions"><button className="button secondary" onClick={close}>Cancel</button><button className="button danger" disabled={busy} onClick={()=>update(removing,{deleted:true})}>Remove record</button></div></>}
-      {resetting&&<><h2>Reset plays for {resetting.nickname}?</h2><p>Restores two starts for the browser linked to this game. Existing games and results stay saved.</p><div className="admin-actions"><button className="button secondary" onClick={close}>Cancel</button><button className="button primary" disabled={busy} onClick={()=>resetPlayer(resetting)}>Restore two plays</button></div></>}
+      {editing && <form onSubmit={event => saveRecord(event, editing)}>
+        <h2>Edit record</h2>
+        <label htmlFor="edit-name">Name</label><input id="edit-name" value={name} onChange={event => setName(event.target.value)} required minLength={2} maxLength={24}/>
+        <label htmlFor="country">Country</label><CountryPicker countries={countries} value={country} onChange={setCountry}/>
+        {editing.finishedAt && !modelRules(editing.rulesVersion) && <>
+          <label htmlFor="edit-score">Score correction</label><input id="edit-score" type="number" min={0} max={1000} step={1} value={score} onChange={event => setScore(event.target.value)} placeholder={String(editing.originalScore)}/>
+          <small>Leave blank to restore the calculated score.</small>
+        </>}
+        {stagedRules(editing.rulesVersion) && editing.temperatureC !== undefined && <>
+          <label htmlFor="edit-rank">Leaderboard position</label><input id="edit-rank" type="number" min={1} max={DISPLAY_PLACES} step={1} value={manualRank} onChange={event => setManualRank(event.target.value)} placeholder="Automatic" aria-describedby="rank-help"/>
+          <small id="rank-help">Choose 1–{DISPLAY_PLACES} or leave blank for automatic ranking. If placements conflict, the better result goes first.</small>
+        </>}
+        <button className="button primary" disabled={busy}>Save changes</button>
+      </form>}
+      {removing && <><h2>Delete {removing.nickname} permanently?</h2><p>This erases the selected game, its history and its leaderboard entry. This cannot be undone.</p><div className="admin-actions"><button className="button secondary" onClick={close} disabled={busy}>Cancel</button><button className="button danger" disabled={busy} onClick={() => permanentlyDelete(removing)}>Delete permanently</button></div></>}
+      {resetting && <><h2>Reset plays for {resetting.nickname}?</h2><p>This restores both starts for the browser linked to this game. Games from the same browser share this allowance.</p><div className="admin-actions"><button className="button secondary" onClick={close}>Cancel</button><button className="button primary" disabled={busy} onClick={() => resetPlayer(resetting)}>Restore two plays</button></div></>}
       {detail&&<><h2>{detail.nickname}</h2><p>{detail.rulesVersion} · {detail.modelEvaluation?.status==="complete"?`+${detail.modelEvaluation.temperatureC!.toFixed(1)}°C`:modelRules(detail.rulesVersion)&&detail.finishedAt?"Temperature pending":detail.score??"In progress"}</p><dl className="admin-metadata"><dt>Started</dt><dd>{date(detail.startedAt)}</dd><dt>Finished</dt><dd>{detail.finishedAt?date(detail.finishedAt):"Playing"}</dd><dt>Play time</dt><dd>{detail.elapsedMs!==undefined?formatTime(detail.elapsedMs):"—"}</dd><dt>Browser starts</dt><dd>{activity?.attempts?`${activity.attempts.used} used · ${activity.attempts.remaining} left`:"Unlinked"}</dd></dl>{activity?.attempts&&<button className="button secondary" disabled={busy} onClick={()=>{const record=data?.records.find(r=>r.id===detail.id);if(record){setDetail(null);setResetting(record);}}}>Reset player’s plays</button>}
       <details open><summary>Policies</summary><div className="played-list">{detail.history.map((action,index)=><div key={index} className="history-row"><b>Round {action.planningRound??index+1} · {action.title}</b><p>{action.accepted?"Passed":"Rejected"} · {action.spent} spent · {action.refund} refunded{action.surprise?` · ${action.surprise.title}`:""}</p></div>)}</div></details>
       <details><summary>Activity · {activity?.events.length??0}</summary><ol className="admin-activity">{activity?.events.map(event=><li key={event.id}><time>{date(event.at)}</time><span>{event.summary}</span></li>)}</ol></details>
