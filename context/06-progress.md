@@ -1,5 +1,9 @@
 # Implementation progress
 
+## 2026-11-09 — opening photo credit
+
+Removed the Everest and Nuptse credit line from the opening screen. The Library links to the existing Credits page, where the photograph's author, original source, licence and edits are listed. Production verification follows deployment.
+
 ## 2026-11-09 — optional laptop overflow worker
 
 Added an eight-second Vercel priority window for fresh or retried queue entries. Repeated submissions preserve queue age. Workers share PostgreSQL time for eligibility and leases, claim distinct jobs atomically and reject stale completions. Added a limited Windows sign-in task that starts the optional outbound-only worker using the existing scoped role.

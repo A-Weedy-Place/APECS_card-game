@@ -8,7 +8,6 @@
 .join-stage>.lobby-title h1{font:700 clamp(56px,8vw,100px)/.95 Georgia,serif;letter-spacing:.04em;margin:0;color:#fff5df}
 .join-stage>.lobby-title .lobby-cop{font:800 clamp(20px,3vw,29px)/1.2 Arial,sans-serif;letter-spacing:.16em;margin:12px 0 0;color:#ffc968}
 .join-stage>.lobby-title .lobby-pavilion{font:400 clamp(18px,3vw,25px)/1.2 Georgia,serif;margin:6px 0 0;color:#fff}
-.lobby-photo-credit{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:env(safe-area-inset-bottom);min-height:44px;display:flex;align-items:center;color:#e5edf2;font-size:11px;text-shadow:0 1px 5px #000;text-decoration:underline;text-underline-offset:3px}
 .game-lobby .join-box{width:min(420px,100%);margin:0;border-radius:18px;padding:clamp(22px,4vw,32px);background:#102e40dd;backdrop-filter:blur(14px);border:1px solid #b7d9dc80;box-shadow:0 20px 60px #061c354d;gap:13px;box-sizing:border-box}
 .join-box>input,.join-box .country-trigger{width:100%;min-height:50px;border-radius:9px;font-size:16px}.join-box label{font-size:13px}.join-box>small{font-size:11px;line-height:1.5;color:#d4e3e7}.join-box .game-button{width:100%}
 .country-dropdown{box-sizing:border-box;inset:auto;max-width:calc(100vw - 24px);border-color:#7199a9;background:#122f42;box-shadow:0 16px 48px #03152280}

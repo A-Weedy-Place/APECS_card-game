@@ -50,6 +50,7 @@ export function PolicyLibrary({ version, cards, filter, onFilter, onInspect }: {
         <option value="support">Support cards</option>
       </select>
     </label>
+    <p className="v9-fine"><a href="/credits" target="_blank" rel="noreferrer">Photo credits</a></p>
     {areas.map(area => {
       const paths = area.controls.filter(control => filter === "all" || filter === control.id);
       if (!paths.length) return null;

@@ -44,6 +44,5 @@ export function Home({ countries }: { countries: { code: string; name: string }[
       {attempts?.remaining === 0 ? <><p className="plays-used">Both plays used</p><Link className="game-button gold" href="/leaderboard">Leaderboard</Link><Link className="game-button quiet" href="/play">Last game & history</Link></> : <button className="game-button gold" type="submit" disabled={busy || !attempts} aria-describedby="join-disclosure">{busy || !attempts ? <LoaderCircle size={20} className="spin" aria-label="Loading"/> : "Play"}</button>}
       <small id="join-disclosure">An alias is fine. Name, flag, temperature & time appear on the board.</small>
     </form>
-    <Link className="lobby-photo-credit" href="/credits#everest-photo">Everest & Nuptse · Pavel Novak</Link>
   </main></div>;
 }
