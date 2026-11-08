@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-09 — off-laptop production scoring
+
+The user confirmed permission from Climate Interactive to automate the browser for the game. Deployed an isolated Vercel Daemon in Frankfurt with one 1 GiB instance and only the scoped scoring-queue credential. The worker checks its database role, uses pinned Linux Chromium and reuses the existing leases, model validation and cache. The release separated static output from the worker root and installed the system CA bundle. Production worker deployment `dpl_C54dGCQ1hUazyBiHRxr15rK54V5N` is ready from source `cf9f78b`. Stopped the idle Windows worker after confirming the cloud worker was ready and connected.
+
+Verified TypeScript and 16 focused tests. The local UI smoke browser closed at launch, so the cutover was verified with one fresh game through the live API. Vercel logged job `a27f9491328b` completing at +3.1°C in 9.4 seconds with the laptop worker stopped. The API reported the result in 16.1 seconds. Validated all 19 saved settings, unchanged play time and a real leaderboard entry. Removed the uniquely identified test game and retained the verified cache. Concurrent real model throughput and venue connectivity remain unverified. A single cloud worker processes uncached scenarios sequentially.
+
 ## 2026-11-09 — laptop and Vercel browser benchmark
 
 Ran the unchanged Playwright adapter against an isolated 19-control fixture. Each batch included nine identical baseline, sparse and dense jobs across both environments. The benchmark checked every setting after reloading the scenario and rejected output other than the fixture marker. The Vercel sandbox ran in Frankfurt with 1 vCPU and 2 GB RAM. It used Node 24.22.1 and Playwright's Chromium 156.0.8078.4. The laptop used Node 22.20.0 and installed Edge.
