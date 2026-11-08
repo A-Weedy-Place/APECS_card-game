@@ -49,6 +49,27 @@ test("real Postgres ownership, concurrent quota/actions, admin audit, private ro
     assert.equal(await finishModel({...job,lease:"wrong"},queuedResult),false);
     await assert.rejects(finishModel(job,{...queuedResult,modelVersion:"wrong"}),/readback/);
     assert.equal(await finishModel(job,queuedResult),true);assert.equal((await enqueueModel(queuedSettings)).status,"complete");assert.equal(await claimModel(),null);
+
+    const cloudSettings={...settings,oil:CONTROLS.find(c=>c.id==="oil")!.max};
+    const overflowSettings={...settings,gas:CONTROLS.find(c=>c.id==="gas")!.max};
+    await enqueueModel(cloudSettings);
+    assert.equal(await claimModel(8000),null);
+    const cloudJob=await claimModel();assert.ok(cloudJob);assert.deepEqual(cloudJob.settings,cloudSettings);
+    await enqueueModel(overflowSettings);
+    assert.equal(await claimModel(8000),null);
+    await admin.query("UPDATE apecs.model_jobs SET updated_at=(statement_timestamp()-interval '10 seconds')::text WHERE status='queued'");
+    assert.equal((await enqueueModel(overflowSettings)).status,"queued");
+    const laptopJob=await claimModel(8000);assert.ok(laptopJob);assert.deepEqual(laptopJob.settings,overflowSettings);
+    assert.equal(await claimModel(),null);
+
+    await admin.query("UPDATE apecs.model_jobs SET lease_until=1 WHERE scenario_key=$1",[cloudJob.key]);
+    const recovered=await claimModel(8000);assert.ok(recovered);assert.equal(recovered.key,cloudJob.key);
+    assert.notEqual(recovered.lease,cloudJob.lease);
+    assert.equal(await finishModel(cloudJob,{...result,readback:cloudSettings}),false);
+    assert.equal(await finishModel(recovered,{...result,readback:cloudSettings}),true);
+    assert.equal(await finishModel(laptopJob,{...result,readback:overflowSettings}),true);
+    assert.equal(await claimModel(),null);
+
     const permissions=await admin.query("SELECT has_schema_privilege('anon','apecs','USAGE') AS anon,has_schema_privilege('authenticated','apecs','USAGE') AS authenticated,(SELECT count(*)::int FROM pg_tables WHERE schemaname='apecs' AND rowsecurity) AS rls");assert.deepEqual(permissions.rows[0],{anon:false,authenticated:false,rls:10});
     await admin.query("ALTER ROLE apecs_worker PASSWORD 'apecs-worker-test-only'");const workerUrl=new URL(runtime);workerUrl.username="apecs_worker";workerUrl.password="apecs-worker-test-only";
     const worker=new Pool({connectionString:workerUrl.toString(),max:1});try{await worker.query("SELECT * FROM apecs.model_jobs");await assert.rejects(worker.query("SELECT * FROM apecs.runs"),/permission denied/);await assert.rejects(worker.query("UPDATE apecs.browser_passes SET used=0"),/permission denied/);}finally{await worker.end();}

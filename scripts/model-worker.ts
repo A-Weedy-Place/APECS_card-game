@@ -7,6 +7,7 @@ import { validateModelResult, type ModelResult } from "../src/server/model-resul
 import { pool } from "../src/server/postgres";
 import type { PolicySettings } from "../src/game/policy-catalogue";
 const hosted = process.argv.includes("--hosted");
+const overflowQueueAgeMs = !hosted && process.argv.includes("--overflow") ? 8000 : 0;
 if (hosted) {
   const url = process.env.MODEL_WORKER_DATABASE_URL;
   if (process.env.MODEL_HOSTED_UI_AUTHORIZED !== "1" || !url) {
@@ -90,18 +91,19 @@ async function processJob(job: NonNullable<Awaited<ReturnType<typeof claimModel>
 }
 
 async function main(){
- if (hosted) {
+ if (hosted || overflowQueueAgeMs) {
   const { rows } = await pool().query<{ role: string }>("SELECT current_user AS role");
   if (rows[0]?.role !== "apecs_worker") {
-   console.error("Hosted scoring refused a database role other than apecs_worker.");
+   console.error("Scoring worker refused a database role other than apecs_worker.");
    process.exitCode = 1;
    return;
   }
-  console.log("Hosted scoring connected with the restricted apecs_worker role.");
+  console.log(hosted ? "Hosted scoring connected with the restricted apecs_worker role."
+    : "Laptop overflow scoring connected with an 8-second cloud priority window.");
  }
  console.log("APECS experimental model worker started. Reusing a hidden browser across jobs.");
  while(!stopping){
-  try{const job=await claimModel();if(job){await processJob(job);if(process.argv.includes("--once"))break;continue;}}
+  try{const job=await claimModel(overflowQueueAgeMs);if(job){await processJob(job);if(process.argv.includes("--once"))break;continue;}}
   catch{console.error("Worker connection unavailable; retrying shortly.");}
   if(process.argv.includes("--once"))break;
   await delay(3000);

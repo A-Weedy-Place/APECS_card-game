@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-09 — optional laptop overflow worker
+
+Added an eight-second Vercel priority window for fresh or retried queue entries. Repeated submissions preserve queue age. Workers share PostgreSQL time for eligibility and leases, claim distinct jobs atomically and reject stale completions. Added a limited Windows sign-in task that starts the optional outbound-only worker using the existing scoped role.
+
+Verified the production build and the isolated PostgreSQL integration test. The test covered fresh-job priority, a second claim while the first was active, duplicate enqueue and claim, expired-lease recovery and stale-write rejection. The test used a network-isolated disposable Sandbox after Docker Desktop failed to start locally. Production checks follow publication.
+
 ## 2026-11-09 — off-laptop production scoring
 
 The user confirmed permission from Climate Interactive to automate the browser for the game. Deployed an isolated Vercel Daemon in Frankfurt with one 1 GiB instance and only the scoped scoring-queue credential. The worker checks its database role, uses pinned Linux Chromium and reuses the existing leases, model validation and cache. The release separated static output from the worker root and installed the system CA bundle. Production worker deployment `dpl_C54dGCQ1hUazyBiHRxr15rK54V5N` is ready from source `cf9f78b`. Stopped the idle Windows worker after confirming the cloud worker was ready and connected.
