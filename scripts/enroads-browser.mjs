@@ -21,7 +21,8 @@ async function evaluate(settings) {
   ) || !Number.isInteger(settings['new-zero'])) throw new Error('Invalid scenario settings');
 
   if (!browser?.isConnected()) {
-    browser = await chromium.launch({ channel: process.env.ENROADS_BROWSER_CHANNEL || 'msedge', headless: true });
+    const channel = process.env.ENROADS_BROWSER_CHANNEL || (process.platform === 'win32' ? 'msedge' : undefined);
+    browser = await chromium.launch({ channel, headless: true });
   }
   // Each scenario starts in a fresh context with its own storage and defaults.
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'en-US' });

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "outputDirectory": "public",
+  "daemons": {
+    "enroads-scoring": {
+      "root": "worker",
+      "entrypoint": "Dockerfile.model-worker",
+      "instances": { "fra1": 1 },
+      "resources": { "requests": { "memory": "1Gi" } },
+      "terminationGracePeriodSeconds": 240
+    }
+  }
+}

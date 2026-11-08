@@ -5,6 +5,7 @@ import {Pool} from "pg";
 import {SUPABASE_CA} from "../src/server/supabase-ca";
 import {CONTROLS} from "../src/game/policy-catalogue";
 import type {PublicRun} from "../src/game/types";
+import {scenarioKey} from "../src/server/model-result";
 import {writeFile} from "node:fs/promises";
 async function main(){
  process.loadEnvFile(".env.deploy.local");const base="https://apecs-card-game.vercel.app",name=`Model verify ${randomBytes(3).toString("hex")}`;
@@ -43,7 +44,7 @@ async function main(){
   await page.screenshot({path:"screenshots/v10-live-enroads.png"});
   const final=await(await page.request.get(`/api/runs/${id}`,{headers:{Authorization:`Bearer ${session.token}`}})).json();if(final.elapsedMs!==stoppedTime)throw new Error("Calculation changed the play clock.");
   const board=await(await page.request.get("/api/leaderboard")).json();if(!board.entries.some((entry:{id:string})=>entry.id===id))throw new Error("Evaluated run missing from standings.");
-  const report={rules:run.rulesVersion,temperatureC:model.temperatureC,modelVersion:model.modelVersion,sourceUrl:model.sourceUrl,calculationWaitMs:Date.now()-started,automaticPosts,cachedInitially:run.modelEvaluation?.status==="complete",matchedInputs:19,playTimeUnchanged:true,leaderboard:true};
+  const report={rules:run.rulesVersion,job:scenarioKey(run.policySettings!).slice(0,12),temperatureC:model.temperatureC,modelVersion:model.modelVersion,sourceUrl:model.sourceUrl,calculationWaitMs:Date.now()-started,automaticPosts,cachedInitially:run.modelEvaluation?.status==="complete",matchedInputs:19,playTimeUnchanged:true,leaderboard:true};
   await writeFile("data/live-model-verification.json",JSON.stringify(report,null,2));console.log(JSON.stringify(report));
  }finally{
   await browser.close();
