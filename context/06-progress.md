@@ -4,7 +4,7 @@
 
 The final policy package now opens the result and play time directly. Earlier rounds still show the card verdict dialog. Final verdicts remain in History and temperature calculation still starts automatically. No game rule, scoring, worker or database changes.
 
-Verified the production build and one focused isolated Edge test. The test played a final policy, saw the result and play time without a dialog, observed the automatic calculation request, and confirmed the last policy in History. The test used its own SQLite database with the model disabled. Live deployment verification pending.
+Verified the production build and one focused isolated Edge test. The test played a final policy, saw the result and play time without a dialog, observed the automatic calculation request, and confirmed the last policy in History. The test used its own SQLite database with the model disabled. Production source `3d254d0` is READY at https://apecs-card-game.vercel.app as deployment `dpl_Gb4C9dvCDoCtkqSHE5oP1vZvudeb`. Public `/play` returned HTTP 200 and referenced the updated final-round guard. No fresh live model job was triggered for this UI check.
 
 Reviewed Excel, hosted evaluation and sparse precomputation. Excel can import verified results. The existing deterministic worker already operates public controls by selector and verifies all inputs. Climate Interactive's public terms limit ordinary use to human-controlled operation. A licensed hosted SDK worker is the preferred replacement, with the existing queue and exact-input cache. There are 2,777 theoretical packages through three changed controls including baseline. No bulk simulation or infrastructure migration was started. SDK runtime, permission and concurrent throughput remain pending.
 
