@@ -78,7 +78,9 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
   try{const next=await api<PublicRun>(`/api/runs/${session.id}/actions`,{method:"POST",headers,body:JSON.stringify(pending.current.body)});setRun(next);setChosen([]);setInspect(null);pending.current=null;
    const outcomes = next.lastActions?.filter(action => action.kind !== "round-end") ?? [];
    const policies = outcomes.filter(action => action.kind === "policy");
-   if (Array.isArray(value) && policies.length) setReceipt({ round: modern ? stageRoundLabel(next.rulesVersion, next.round - 1) : String(next.round), outcomes: policies });
+   setReceipt(!next.finishedAt && Array.isArray(value) && policies.length
+     ? { round: modern ? stageRoundLabel(next.rulesVersion, next.round - 1) : String(next.round), outcomes: policies }
+     : null);
    setNotice(value === "redraw" ? "Shuffled" : policies.length ? "" : outcomes.length ? "Challenge complete" : "Round skipped");
    playSound(value === "redraw" ? "shuffle" : policies.some(action => !action.accepted) ? "fail" : "pass");
   }catch(err){setError((err as Error).message);}finally{acting.current=false;setBusy(false);}
@@ -123,7 +125,7 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
      : <PolicyHistory run={run} cards={library} onInspect={setInspect}/>}
  </Sheet>}
  {receipt&&<Sheet title={`Round ${receipt.round} results`} className="policy-receipt-sheet" onClose={()=>setReceipt(null)}>
-   <PolicyRoundResults outcomes={receipt.outcomes} finished={!!run.finishedAt} onContinue={()=>setReceipt(null)}/>
+   <PolicyRoundResults outcomes={receipt.outcomes} onContinue={()=>setReceipt(null)}/>
  </Sheet>}
  </div>;
 }

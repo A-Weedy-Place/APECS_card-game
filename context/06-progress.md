@@ -1,5 +1,13 @@
 # Implementation progress
 
+## 2026-11-09 — direct final results and model hosting review
+
+The final policy package now opens the result and play time directly. Earlier rounds still show the card verdict dialog. Final verdicts remain in History and temperature calculation still starts automatically. No game rule, scoring, worker or database changes.
+
+Verified the production build and one focused isolated Edge test. The test played a final policy, saw the result and play time without a dialog, observed the automatic calculation request, and confirmed the last policy in History. The test used its own SQLite database with the model disabled. Live deployment verification pending.
+
+Reviewed Excel, hosted evaluation and sparse precomputation. Excel can import verified results. The existing deterministic worker already operates public controls by selector and verifies all inputs. Climate Interactive's public terms limit ordinary use to human-controlled operation. A licensed hosted SDK worker is the preferred replacement, with the existing queue and exact-input cache. There are 2,777 theoretical packages through three changed controls including baseline. No bulk simulation or infrastructure migration was started. SDK runtime, permission and concurrent throughput remain pending.
+
 ## 2026-11-08 — support rotation and explicit card effects
 
 Added version 0.13 with three sequential support paths, one support offer per hand, and a preference for cards outside the previous hand. Revenue follows 4 → 5 → 6 → 8 coins in an ordinary upgrade sequence. Removed automatic support drain and approval fatigue. Resource changes on adoption appear as colour-coded arrows with labels. Kept older rule versions and their verified leaderboard eligibility.

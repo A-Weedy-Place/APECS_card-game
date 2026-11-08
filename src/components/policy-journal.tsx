@@ -141,9 +141,8 @@ export function PolicyHistory({ run, cards, onInspect }: {
   </>;
 }
 
-export function PolicyRoundResults({ outcomes, finished, onContinue }: {
+export function PolicyRoundResults({ outcomes, onContinue }: {
   outcomes: Decision[];
-  finished: boolean;
   onContinue: () => void;
 }) {
   return <>
@@ -154,6 +153,6 @@ export function PolicyRoundResults({ outcomes, finished, onContinue }: {
         {outcome.accepted ? "Passed" : "Rejected"}
       </span>
     </li>)}</ul>
-    <button className="game-button gold policy-continue" onClick={onContinue}>{finished ? "View result" : "Continue"}</button>
+    <button className="game-button gold policy-continue" onClick={onContinue}>Continue</button>
   </>;
 }

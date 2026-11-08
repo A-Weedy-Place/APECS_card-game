@@ -22,7 +22,7 @@ async function main(){
     if(index>=0){await page.locator(".v9-select").nth(index).click();await page.locator(".v9-controls").getByRole("button",{name:/^Play/}).click();}else await page.getByRole("button",{name:"Skip",exact:true}).click();
    }
    })()]);if(!result.ok())throw new Error(`Policy request ${result.status()}`);run=await result.json();
-   if(run.lastActions?.some(action=>action.kind==="policy")){await page.locator(".policy-continue").click();await expect(page.locator(".policy-continue")).not.toBeVisible();}
+   if(!run.finishedAt&&run.lastActions?.some(action=>action.kind==="policy")){await page.locator(".policy-continue").click();await expect(page.locator(".policy-continue")).not.toBeVisible();}
   }
   const stoppedTime=run.elapsedMs,started=Date.now();
   await page.locator(".v9-result h1").filter({hasText:/^\+\d+\.\d°C$/}).waitFor({timeout:240000});

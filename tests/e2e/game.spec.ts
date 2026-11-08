@@ -78,23 +78,31 @@ test("phone hand, resources, library, selection, saved state and pending result"
  run=await act(page,()=>page.locator(".v9-controls").getByRole("button",{name:/^Play/}).click());expect(run.round).toBe(3);
  const receipt=page.getByRole("dialog",{name:"Round 3 results"});
  await expect(receipt.getByRole("listitem")).toHaveCount(2);
- for(const action of run.lastActions!.filter(action=>action.kind==="policy")){
+ const thirdRoundPolicies=run.lastActions!.filter(action=>action.kind==="policy");
+ for(const action of thirdRoundPolicies){
    await expect(receipt.getByRole("listitem").filter({hasText:action.title})).toContainText(action.accepted?"Passed":"Rejected");
  }
  await page.screenshot({path:"screenshots/v9-round-receipt.png",animations:"disabled"});
  await receipt.getByRole("button",{name:"Continue",exact:true}).click();
  await page.reload();await expect(page.locator(".v9-rounds .current")).toHaveText("4");
  const model=page.waitForResponse(r=>r.url().endsWith("/model")&&r.request().method()==="POST");
- while(!run.finishedAt){if(run.specialRound){await expect(page.locator(".arcade-boosts button")).toHaveCount(0);await expect(page.locator(".arcade-reward-tag")).toContainText("8 coins");await expect(page.getByRole("button",{name:run.specialRound==="flight"?"Start Flappy Flight":"Start Reef Rescue",exact:true})).toBeVisible();}run=await skip(page,run);}
+ while(run.round<run.totalRounds!-1){if(run.specialRound){await expect(page.locator(".arcade-boosts button")).toHaveCount(0);await expect(page.locator(".arcade-reward-tag")).toContainText("8 coins");await expect(page.getByRole("button",{name:run.specialRound==="flight"?"Start Flappy Flight":"Start Reef Rescue",exact:true})).toBeVisible();}run=await skip(page,run);}
+ await page.locator(".v9-select:enabled").first().click();
+ run=await act(page,()=>page.locator(".v9-controls").getByRole("button",{name:/^Play/}).click());
+ const finalPolicy=run.lastActions!.find(action=>action.kind==="policy");
+ expect(run.finishedAt).toBeTruthy();expect(finalPolicy).toBeDefined();
+ await expect(page.locator(".v9-result-player span")).toHaveText(/\d+:\d{2}/);
+ await expect(page.locator(".policy-receipt-sheet")).toHaveCount(0);
  await expect(page.getByRole("heading",{name:"Calculation paused",exact:true})).toBeVisible();expect(run.score).toBeNull();expect(run.elapsedMs).toBeGreaterThan(0);expect((await model).status()).toBe(503);await expect(page.getByRole("button",{name:"Calculate temperature",exact:true})).toHaveCount(0);await expect(page.locator(".v9-result [role=alert]")).toContainText("not configured");
  await page.getByRole("button",{name:"History",exact:true}).first().click();
  const history=page.getByRole("dialog",{name:"History",exact:true});
  await expect(history.getByRole("heading",{name:"Round log",exact:true})).toBeVisible();
  await expect(history.getByRole("heading",{name:"Policy tree",exact:true})).toBeVisible();
- for(const action of run.history.filter(action=>action.kind==="policy")){
+ for(const action of thirdRoundPolicies){
    await expect(history.getByRole("region",{name:"Round 3",exact:true})).toContainText(action.title);
    await expect(history.getByRole("button",{name:`${action.title} · ${action.accepted?"Adopted":"Rejected"}`,exact:true})).toHaveCount(1);
  }
+ await expect(history.getByRole("region",{name:"Round 12",exact:true})).toContainText(finalPolicy!.title);
  await page.screenshot({path:"screenshots/v9-policy-history.png",animations:"disabled"});
  await page.setViewportSize({width:320,height:568});
  expect(await history.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth)).toBe(true);
