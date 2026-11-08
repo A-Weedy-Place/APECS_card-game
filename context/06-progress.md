@@ -1,5 +1,13 @@
 # Implementation progress
 
+## 2026-11-09 — laptop and Vercel browser benchmark
+
+Ran the unchanged Playwright adapter against an isolated 19-control fixture. Each batch included nine identical baseline, sparse and dense jobs across both environments. The benchmark checked every setting after reloading the scenario and rejected output other than the fixture marker. The Vercel sandbox ran in Frankfurt with 1 vCPU and 2 GB RAM. It used Node 24.22.1 and Playwright's Chromium 156.0.8078.4. The laptop used Node 22.20.0 and installed Edge.
+
+Verified times in seconds, laptop versus Vercel: **35.336 / 30.992** for nine jobs with one worker, and **16.532 / 13.845** with three workers. Median warm serial jobs were **3.502 / 3.135**. Both full runs passed all readback checks. The first cloud attempt with a Lambda-oriented Chromium build needed compatibility libraries and stalled on navigation. The successful run used Playwright's matching browser and Ubuntu libraries. Outbound network access was denied during cloud execution. No credentials or player data went into the sandbox, and no game, queue or leaderboard state was changed. Both disposable sandboxes were stopped.
+
+The benchmark measures browser automation and the existing settlement wait against a local fixture. Live En-ROADS page/model latency, production queue-to-leaderboard timing and larger concurrent batches remain unverified. Production scoring still uses the laptop worker. Hosted public UI automation or an SDK deployment needs Climate Interactive approval.
+
 ## 2026-11-09 — direct final results and model hosting review
 
 The final policy package now opens the result and play time directly. Earlier rounds still show the card verdict dialog. Final verdicts remain in History and temperature calculation still starts automatically. No game rule, scoring, worker or database changes.
