@@ -4,7 +4,9 @@
 
 Added an eight-second Vercel priority window for fresh or retried queue entries. Repeated submissions preserve queue age. Workers share PostgreSQL time for eligibility and leases, claim distinct jobs atomically and reject stale completions. Added a limited Windows sign-in task that starts the optional outbound-only worker using the existing scoped role.
 
-Verified the production build and the isolated PostgreSQL integration test. The test covered fresh-job priority, a second claim while the first was active, duplicate enqueue and claim, expired-lease recovery and stale-write rejection. The test used a network-isolated disposable Sandbox after Docker Desktop failed to start locally. Production checks follow publication.
+Verified the production build and the isolated PostgreSQL integration test. The test covered fresh-job priority, a second claim while the first was active, duplicate enqueue and claim, expired-lease recovery and stale-write rejection. The test used a network-isolated disposable Sandbox after Docker Desktop failed to start locally. The sandbox was stopped.
+
+Production game `dpl_9UUmSujVhFQgQ7sgQA9k3d2L2tKC` and worker `dpl_HKPKcnuXhFUGZxvohehW2Rpyg4Ac` are ready from `0db2579`. Registered and started the limited Windows sign-in task. A production burst of three fresh model-only packages finished in 28.2 seconds. Vercel processed the first and third jobs (`176eb19e84b5`, `26fab86b180d`) and the laptop processed the second (`6c30e2a7e9ea`). Each was claimed once and all 19 inputs verified. No player entries were created. The live leaderboard returned HTTP 200. The crash test used the isolated database and full event-scale throughput remains unverified.
 
 ## 2026-11-09 — off-laptop production scoring
 

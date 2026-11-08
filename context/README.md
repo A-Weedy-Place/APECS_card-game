@@ -1,6 +1,6 @@
 # Cryosphere Futures context index
 
-New 0.13 games have twelve policy rounds in three groups of four, with endless coin-only arcade breaks after rounds 4 and 8. Nine support cards form three rotating three-step paths. Revenue starts at four coins per round and upgrades can raise it to five, six and eight. The remaining 26 cards cover all 19 En-ROADS controls. Resource effect arrows appear on offered cards. Saved games keep their original rules. Read 16-v11-stages.md for schedules and balance, and 14-hosting-admin.md for admin features. The Vercel production scoring worker evaluates complete scenarios in the public En-ROADS 26.11.0 UI. The laptop worker has been stopped. Verified versus pending checks are in Progress.
+New 0.13 games have twelve policy rounds in three groups of four, with endless coin-only arcade breaks after rounds 4 and 8. Nine support cards form three rotating three-step paths. Revenue starts at four coins per round and upgrades can raise it to five, six and eight. The remaining 26 cards cover all 19 En-ROADS controls. Resource effect arrows appear on offered cards. Saved games keep their original rules. Read 16-v11-stages.md for schedules and balance, and 14-hosting-admin.md for admin features. The primary Vercel worker evaluates complete scenarios in the public En-ROADS 26.11.0 UI. The optional Windows worker helps with older queued jobs after sign-in. Verified versus pending checks are in Progress.
 
 | Need | Read | Main code |
 | --- | --- | --- |
