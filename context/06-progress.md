@@ -2,7 +2,9 @@
 
 ## 2026-11-09 — opening photo credit
 
-Removed the Everest and Nuptse credit line from the opening screen. The Library links to the existing Credits page, where the photograph's author, original source, licence and edits are listed. Production verification follows deployment.
+Removed the Everest and Nuptse credit line from the opening screen. The Library links to the existing Credits page, where the photograph's author, original source, licence and edits are listed.
+
+Production build passed. Vercel deployment `dpl_2oTPcLUVo2PJRGApGF6vkxWCbiAq` from `71f8f9e` is ready. Live home returned HTTP 200 with the registration form and no credit line. The live Credits page returned HTTP 200 and retained the photograph attribution and licence.
 
 ## 2026-11-09 — optional laptop overflow worker
 
