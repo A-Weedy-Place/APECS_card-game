@@ -4,7 +4,7 @@
 
 The official simulator controls its own initial welcome prompt. Keep the result iframe mounted after its first open so closing and reopening the same result preserves the dismissed prompt and the simulator state. Orientation changes still reload the simulator for chart sizing.
 
-Production build and the focused isolated browser test passed. The test dismissed a fixture welcome prompt, closed and reopened the result, and verified the same frame stayed loaded. It also checked that orientation still reloads the frame. Live deployment verification follows publication.
+Production build and the focused isolated browser test passed. The test dismissed a fixture welcome prompt, closed and reopened the result, and verified the same frame stayed loaded. It also checked that orientation still reloads the frame. Deployment `dpl_BiifSmuTopiGD8uiXVQhzfE8wcb4` from `6b5440b` is ready. The public play page returned HTTP 200 and served the updated result dialog bundle. Verified the live 0.13 card guide and revenue costs of 4, 7 and 12 coins.
 
 ## 2026-11-09 — opening photo credit
 
