@@ -1,15 +1,24 @@
 "use client";
 import { useEffect,useRef,useState } from "react";
 import { X,ExternalLink } from "lucide-react";
-export function ScenarioResults({url,onClose}:{url:string;onClose:()=>void}){
+export function ScenarioResults({url,open,onClose}:{url:string;open:boolean;onClose:()=>void}){
  const dialog=useRef<HTMLDialogElement>(null);
  const [frameVersion,setFrameVersion]=useState(0);
- useEffect(()=>{dialog.current?.showModal();},[]);
+ useEffect(()=>{
+  const element=dialog.current;
+  if(open&&!element?.open)element?.showModal();
+  if(!open&&element?.open)element.close();
+ },[open]);
  useEffect(()=>{
   const element=dialog.current;if(!element)return;let width=element.getBoundingClientRect().width,timer:ReturnType<typeof setTimeout>;
   // The official tool computes its chart scale on load. Refresh on orientation/width
-  // changes, but leave height-only virtual-keyboard changes alone.
-  const observer=new ResizeObserver(entries=>{const next=entries[0].contentRect.width;if(Math.abs(next-width)<16)return;width=next;clearTimeout(timer);timer=setTimeout(()=>setFrameVersion(value=>value+1),200);});
+  // changes, but keep the existing frame when the dialog is closed and reopened.
+  const observer=new ResizeObserver(entries=>{
+   const next=entries[0].contentRect.width;
+   clearTimeout(timer);
+   if(next<=0||Math.abs(next-width)<16)return;
+   timer=setTimeout(()=>{width=next;setFrameVersion(value=>value+1);},200);
+  });
   observer.observe(element);return()=>{observer.disconnect();clearTimeout(timer);};
  },[]);
  return <dialog ref={dialog} className="scenario-dialog" aria-label="En-ROADS scenario results" onCancel={onClose}>

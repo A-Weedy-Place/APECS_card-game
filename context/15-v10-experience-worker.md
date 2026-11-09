@@ -14,6 +14,8 @@ New games use0.10: ten2026 policy rounds preserved, arcade4/7 grants coins only 
 
 Pavilion identity sits outside the centred entry form. Replaced the1024px background with a3792×2846 real NASA Greenland photograph; no generated texture. Country popup positions against the visual viewport. Arcade hides the ordinary HUD and centres a large high-DPI playfield across portrait/landscape. Genuine En-ROADS source scenario appears in a full-screen APECS wrapper, with its own interface/branding and attribution intact. Exploring the external simulator does not edit submitted scores.
 
+The official En-ROADS iframe controls its first welcome prompt. No supported way to dismiss it from the game was found. The result dialog keeps the same iframe mounted across close and reopen, so a dismissal persists while viewing the same result at the same width. Width changes still reload the frame for chart scaling.
+
 Results automatically request calculation and poll. The hosted queue stores only complete 19-input packages and their versioned scenario hash. The scoring worker connects outbound to Supabase, claims leased jobs with SKIP LOCKED, invokes the public-UI adapter and accepts only matching, version-pinned readbacks. Stale leases cannot overwrite newer results. The worker role can access only the queue and cache.
 
 Each worker processes one uncached job at a time and caches complete packages. Only verified temperatures rank. The browser integration remains experimental, and full event-scale throughput remains unverified.

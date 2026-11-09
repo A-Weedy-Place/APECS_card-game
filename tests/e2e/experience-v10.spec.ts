@@ -69,8 +69,18 @@ test("new arcade fills the playfield, auto-calculation and official scenario win
    }
    return route.fulfill({ json: evaluation });
  });
- let frameLoads=0;await page.route("https://en-roads.climateinteractive.org/**",route=>{frameLoads++;return route.fulfill({body:"<html><body><h1>Official simulator fixture</h1></body></html>",contentType:"text/html"});});
+ let frameLoads=0;await page.route("https://en-roads.climateinteractive.org/**",route=>{frameLoads++;return route.fulfill({body:"<html><body><h1>Official simulator fixture</h1><button onclick='this.remove()'>Get Started</button></body></html>",contentType:"text/html"});});
  await page.setViewportSize({width:390,height:844});await page.reload();await expect(page.getByRole("status").filter({hasText:"Waiting for the model"})).toBeVisible();await expect(page.getByRole("heading",{name:"+3.3°C",exact:true})).toBeVisible();expect(posts).toBe(1);
  await page.getByRole("button",{name:"Results & graphs",exact:true}).click();await expect(page.getByRole("dialog",{name:"En-ROADS scenario results"})).toBeVisible();await expect(page.locator(".scenario-dialog iframe")).toHaveAttribute("src",evaluation.sourceUrl);
- await expect(page.getByRole("link",{name:"Open En-ROADS"})).toHaveAttribute("href",evaluation.sourceUrl);await expect.poll(()=>frameLoads).toBe(1);await page.setViewportSize({width:844,height:390});await expect.poll(()=>frameLoads).toBe(2);await page.keyboard.press("Escape");await expect(page.locator(".scenario-dialog")).toHaveCount(0);
+ await expect(page.getByRole("link",{name:"Open En-ROADS"})).toHaveAttribute("href",evaluation.sourceUrl);await expect.poll(()=>frameLoads).toBe(1);
+ const welcome=page.frameLocator(".scenario-dialog iframe").getByRole("button",{name:"Get Started",exact:true});
+ await welcome.click();
+ await page.getByRole("button",{name:"Close scenario results"}).click();
+ await expect(page.locator(".scenario-dialog")).toBeHidden();
+ await page.getByRole("button",{name:"Results & graphs",exact:true}).click();
+ await expect(page.locator(".scenario-dialog")).toBeVisible();
+ await expect(welcome).toHaveCount(0);
+ expect(frameLoads).toBe(1);
+ await page.setViewportSize({width:844,height:390});await expect.poll(()=>frameLoads).toBe(2);
+ await page.keyboard.press("Escape");await expect(page.locator(".scenario-dialog")).toBeHidden();
 });

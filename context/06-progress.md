@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-09 — preserve the dismissed En-ROADS welcome prompt
+
+The official simulator controls its own initial welcome prompt. Keep the result iframe mounted after its first open so closing and reopening the same result preserves the dismissed prompt and the simulator state. Orientation changes still reload the simulator for chart sizing.
+
+Production build and the focused isolated browser test passed. The test dismissed a fixture welcome prompt, closed and reopened the result, and verified the same frame stayed loaded. It also checked that orientation still reloads the frame. Live deployment verification follows publication.
+
 ## 2026-11-09 — opening photo credit
 
 Removed the Everest and Nuptse credit line from the opening screen. The Library links to the existing Credits page, where the photograph's author, original source, licence and edits are listed.

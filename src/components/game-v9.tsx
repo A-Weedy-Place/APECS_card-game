@@ -130,7 +130,8 @@ export function GameV9({initialRun,session}:{initialRun:PublicRun;session:Sessio
  </div>;
 }
 function TemperatureResult({run,session,onHistory,onUpdate}:{run:PublicRun;session:Session;onHistory:()=>void;onUpdate:(evaluation:NonNullable<PublicRun["modelEvaluation"]>)=>void}){
- const[attempts,setAttempts]=useState<AttemptStatus|null>(null),[error,setError]=useState(""),[showScenario,setShowScenario]=useState(false);
+ const[attempts,setAttempts]=useState<AttemptStatus|null>(null),[error,setError]=useState("");
+ const[scenarioView,setScenarioView]=useState<"unopened"|"open"|"closed">("unopened");
  const evaluation=run.modelEvaluation??{status:"idle"},waiting=evaluation.status==="queued"||evaluation.status==="running",complete=evaluation.status==="complete";
  const started=useRef(false),update=useRef(onUpdate);update.current=onUpdate;
  async function calculate(){setError("");try{update.current(await api(`/api/runs/${session.id}/model`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.token}`},body:"{}"}));}catch(err){setError((err as Error).message);}}
@@ -142,8 +143,8 @@ function TemperatureResult({run,session,onHistory,onUpdate}:{run:PublicRun;sessi
  {!complete&&!error&&evaluation.status!=="failed"&&<p className="v9-result-status" role="status"><LoaderCircle className="spin" size={17} aria-hidden="true"/>{evaluation.status==="running"?"Evaluating your policies…":"Waiting for the model…"}</p>}
  {(error||evaluation.error)&&<p role="alert" className="error-message">{error||evaluation.error}</p>}
  {(error||evaluation.status==="failed")&&<button className="game-button gold" onClick={calculate}>Retry calculation</button>}
- <div className="v9-result-actions">{complete&&evaluation.sourceUrl&&<button className="game-button gold" onClick={()=>setShowScenario(true)}>Results & graphs</button>}<Link className="game-button" href="/leaderboard">Leaderboard</Link><button className="game-button" onClick={onHistory}>History</button>{!!attempts?.remaining&&<button className="game-button quiet" onClick={()=>{localStorage.removeItem(SESSION_KEY);window.location.href="/";}}>Play again · {attempts.remaining} left</button>}</div>
+ <div className="v9-result-actions">{complete&&evaluation.sourceUrl&&<button className="game-button gold" onClick={()=>setScenarioView("open")}>Results & graphs</button>}<Link className="game-button" href="/leaderboard">Leaderboard</Link><button className="game-button" onClick={onHistory}>History</button>{!!attempts?.remaining&&<button className="game-button quiet" onClick={()=>{localStorage.removeItem(SESSION_KEY);window.location.href="/";}}>Play again · {attempts.remaining} left</button>}</div>
  <small className="v9-fine">{complete?<><a href="https://www.climateinteractive.org/" target="_blank" rel="noreferrer">Climate Interactive</a> / <a href="https://mitsloan.mit.edu/" target="_blank" rel="noreferrer">MIT Sloan</a> · En-ROADS {evaluation.modelVersion}<br/>Conditional projection · experimental browser connection.</>:"Your game is saved. Calculation does not count toward play time."}</small>
- {showScenario&&evaluation.sourceUrl&&<ScenarioResults url={evaluation.sourceUrl} onClose={()=>setShowScenario(false)}/>}
+ {scenarioView!=="unopened"&&evaluation.sourceUrl&&<ScenarioResults url={evaluation.sourceUrl} open={scenarioView==="open"} onClose={()=>setScenarioView("closed")}/>}
  </section>;
 }
