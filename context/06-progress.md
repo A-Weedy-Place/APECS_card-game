@@ -4,7 +4,7 @@
 
 Removed the 10-row public display cap and the 100-entry public API cap in both stores. Verified, visible games remain eligible under the same rules, with existing ordering, ties and manual placement. Added a read-only backup command that saves the public standings as local CSV and JSON. Saved an initial snapshot of eight ranked entries before deployment.
 
-Verified the production build, nine focused unit/storage checks and one isolated browser test. The SQLite fixture returned all 105 verified entries. The browser fixture rendered 105 rows and scrolled to rank 105. The eight-entry CSV and JSON parsed successfully. Production verification follows publication.
+Verified the production build, nine focused unit/storage checks and one isolated browser test. The SQLite fixture returned all 105 verified entries. The browser fixture rendered 105 rows and scrolled to rank 105. Vercel production deployment `dpl_6tgmNcsfodLNEZmt9m1wy661RPJP` from `e6a0d20` is ready. The live leaderboard and API returned HTTP 200. Both local eight-entry files parsed successfully, and the JSON matched all current live entries exactly.
 
 ## 2026-11-09 — preserve the dismissed En-ROADS welcome prompt
 
