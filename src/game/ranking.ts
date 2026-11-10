@@ -4,7 +4,20 @@ export const temperatureKey=(value:number)=>Math.round(value*10);
 export const timeKey=(value:number)=>Math.round(value/10);
 export function compareResults(a:LeaderboardEntry,b:LeaderboardEntry){return temperatureKey(a.temperatureC??a.score)-temperatureKey(b.temperatureC??b.score)||timeKey(a.elapsedMs??0)-timeKey(b.elapsedMs??0)||a.finishedAt.localeCompare(b.finishedAt)||a.id.localeCompare(b.id);}
 export function sameResult(a:LeaderboardEntry,b:LeaderboardEntry){return temperatureKey(a.temperatureC??a.score)===temperatureKey(b.temperatureC??b.score)&&timeKey(a.elapsedMs??0)===timeKey(b.elapsedMs??0);}
+/** The positions available for manual placement. */
 export const DISPLAY_PLACES = 10;
+
+/** Assign display ranks to already ordered results. */
+export function rankLeaderboard(entries: LeaderboardEntry[]) {
+  let lastRank = 0;
+  return entries.map((entry, index) => {
+    const previous = entries[index - 1];
+    const tied = previous && entry.manualRank === undefined && previous.manualRank === undefined && sameResult(entry, previous);
+    const rank = tied ? lastRank : index + 1;
+    lastRank = rank;
+    return { ...entry, rank };
+  });
+}
 
 /** Place manual entries in requested order, breaking position conflicts by the normal result order. */
 export function orderLeaderboard(entries: LeaderboardEntry[]) {

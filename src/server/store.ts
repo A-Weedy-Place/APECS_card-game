@@ -181,7 +181,7 @@ export function leaderboard(includeHidden = false): LeaderboardEntry[] {
         score: model.temperatureC!, temperatureC: model.temperatureC!, elapsedMs: state.elapsedMs ?? 0,
         finishedAt: state.finishedAt!, rulesVersion: state.rulesVersion, manualRank: row.manual_rank ?? undefined }];
     });
-    return orderLeaderboard(entries).slice(0, 100);
+    return orderLeaderboard(entries);
   }
   const rows = db().prepare(`SELECT r.id, r.state, r.hidden, c.display_name, c.country, c.score_override FROM runs r LEFT JOIN run_controls c ON c.run_id = r.id WHERE r.score IS NOT NULL AND COALESCE(c.deleted, 0) = 0 ${includeHidden ? "" : "AND r.hidden = 0 AND json_extract(r.state, '$.rulesVersion') = ?"} ORDER BY COALESCE(c.score_override, r.score) DESC, r.finished_at ASC LIMIT 100`).all(...(includeHidden ? [] : [RULES_VERSION])) as (Row & Partial<Control>)[];
   return rows.map(row => {

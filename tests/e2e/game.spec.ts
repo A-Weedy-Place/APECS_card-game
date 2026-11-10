@@ -126,5 +126,13 @@ test("admin moderates pending records without editable temperature; projector te
  await page.getByRole("button",{name:"Reset plays for Corrected Player",exact:true}).click();await page.getByRole("button",{name:"Restore two plays",exact:true}).click();await expect(page.getByRole("status")).toContainText("Two plays restored");expect((await(await page.request.get("/api/attempts")).json()).remaining).toBe(2);const download=page.waitForEvent("download");await page.getByRole("button",{name:"Export all",exact:true}).click();expect((await download).suggestedFilename()).toBe("event-records.csv");expect((await page.request.get("/api/admin")).status()).toBe(401);
  await page.getByRole("button",{name:"Delete Corrected Player",exact:true}).click();await page.getByRole("button",{name:"Delete permanently",exact:true}).click();await expect(page.getByText("No games found.", {exact:true})).toBeVisible();
  // Display-layout fixture only; no synthetic temperatures are saved to any database.
- await page.route("**/api/leaderboard",route=>route.fulfill({json:{entries:Array.from({length:10},(_,i)=>({id:`layout-${i}`,nickname:`Player ${i+1}`,country:i%2?"PK":"FR",score:2+i/10,temperatureC:2+i/10,elapsedMs:60000+i*100,finishedAt:"2026-10-31"}))}}));await page.setViewportSize({width:1366,height:768});await page.goto("/leaderboard");await expect(page.locator(".display-table tbody tr")).toHaveCount(10);await expect(page.locator("th")).toContainText(["Rank","","Name","2100 °C","Time"]);expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1)).toBe(true);await page.screenshot({path:"screenshots/v9-projector.png",animations:"disabled"});
+ let playerCount=10;
+ await page.route("**/api/leaderboard",route=>route.fulfill({json:{entries:Array.from({length:playerCount},(_,i)=>({id:`layout-${i}`,nickname:`Player ${i+1}`,country:i%2?"PK":"FR",score:2,temperatureC:2,elapsedMs:60000+i*100,finishedAt:"2026-10-31"}))}}));await page.setViewportSize({width:1366,height:768});await page.goto("/leaderboard");await expect(page.locator(".display-table tbody tr")).toHaveCount(10);await expect(page.locator("th")).toContainText(["Rank","","Name","2100 °C","Time"]);expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1)).toBe(true);await page.screenshot({path:"screenshots/v9-projector.png",animations:"disabled"});
+ playerCount=105;
+ await page.reload();
+ const rows=page.locator(".display-table tbody tr");
+ await expect(rows).toHaveCount(105);
+ await rows.last().scrollIntoViewIfNeeded();
+ await expect(rows.last()).toBeInViewport();
+ await expect(rows.last().getByRole("cell").first()).toHaveText("105");
 });

@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { countryName } from "@/lib/countries";
 import { Flag } from "./country-picker";
 import type { LeaderboardEntry } from "@/game/types";
-import { DISPLAY_PLACES, sameResult, formatTime } from "@/game/ranking";
+import { rankLeaderboard, formatTime } from "@/game/ranking";
 
 export function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
@@ -27,14 +27,7 @@ export function Leaderboard() {
   async function fullscreen() {
     try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); setScreenError(""); } catch { setScreenError("Use your browser’s fullscreen control."); }
   }
-  let last:LeaderboardEntry|undefined, lastRank = 0;
-  const ranked = entries.slice(0, DISPLAY_PLACES).map((entry, index) => {
-    const tied = last && entry.manualRank === undefined && last.manualRank === undefined && sameResult(entry, last);
-    const rank = tied ? lastRank : index + 1;
-    last = entry;
-    lastRank = rank;
-    return { ...entry, rank };
-  });
+  const ranked = rankLeaderboard(entries);
   return <div className="board-shell display-only"><main id="main-content" className="board-main">
     <header className="display-heading"><div><p>APECS · COP31 · CRYOSPHERE PAVILION</p><h1>Leaderboard</h1></div><button className="icon-button" onClick={fullscreen} aria-label="Toggle fullscreen leaderboard"><Expand size={20}/></button></header>
     <div className="board-layout"><section className="standings-panel" aria-label="Leaderboard"><div className="standings-head"><span><Radio size={14} aria-hidden="true"/> Live standings</span>{error && <span role="status">{error}</span>}</div>

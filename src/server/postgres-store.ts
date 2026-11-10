@@ -90,7 +90,7 @@ export async function leaderboard(includeHidden=false):Promise<LeaderboardEntry[
       score: evaluation.temperatureC!, temperatureC: evaluation.temperatureC!, elapsedMs: state.elapsedMs ?? 0,
       finishedAt: state.finishedAt!, rulesVersion: state.rulesVersion, manualRank: row.manual_rank ?? undefined }];
   });
-  return orderLeaderboard(entries).slice(0, 100);
+  return orderLeaderboard(entries);
 }
 export async function stats():Promise<AdminData["stats"]>{return (await one<AdminData["stats"]>("SELECT COUNT(*)::int AS runs,COUNT(finished_at)::int AS completed,COALESCE(SUM(hidden),0)::int AS hidden,(SELECT COUNT(*)::int FROM apecs.run_controls WHERE deleted=1) AS deleted FROM apecs.runs"))!;}
 export async function displayUrl(){return (await one<{value:string}>("SELECT value FROM apecs.event_settings WHERE key='join-url'"))?.value??"";}

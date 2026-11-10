@@ -66,4 +66,15 @@ test("owned completed runs alone request evaluation, pending cannot rank, valida
  saveModelStatus(settings,"complete",{temperatureC:3.3,modelVersion:MODEL_VERSION,profile:MODEL_PROFILE,provider:"public-ui-experimental",sourceUrl:`https://en-roads.climateinteractive.org/scenario.html?v=${MODEL_VERSION}`,evaluatedAt:new Date().toISOString(),readback:settings});
  assert.deepEqual(leaderboard().map(e=>e.id),[b.run.id,a.run.id]);assert.equal(getRun(a.run.id,a.token).modelEvaluation?.temperatureC,3.3);assert.equal(getRun(a.run.id,a.token).score,null);assert.throws(()=>editRecord(a.run.id,0,{score:100}),/cannot be edited/);
  editRecord(a.run.id,0,{nickname:"Corrected",hidden:true});assert.equal(leaderboard().length,1);assert.equal(adminRecords(1,"Corrected").records[0].temperatureC,3.3);editRecord(a.run.id,1,{hidden:false});assert.equal(leaderboard().length,2);
+ // Expand the isolated fixture beyond the former 100-entry API cap.
+ const boardFixture=new DatabaseSync(process.env.DATABASE_PATH!);
+ try {
+  const completed=JSON.parse((boardFixture.prepare("SELECT state FROM runs WHERE id=?").get(a.run.id) as {state:string}).state);
+  const insert=boardFixture.prepare("INSERT INTO runs(id,token_hash,state,finished_at,created_at) VALUES (?,?,?,?,?)");
+  for(let index=0;index<103;index++){
+   const id=`full-board-${index}`;
+   insert.run(id,id,JSON.stringify({...completed,id,nickname:`Full board ${index}`}),completed.finishedAt,completed.startedAt);
+  }
+ } finally { boardFixture.close(); }
+ assert.equal(leaderboard().length,105);
 });
