@@ -32,7 +32,7 @@ Node 22.13 or newer is required. Install dependencies with `npm install`, then r
 | `http://127.0.0.1:3000/credits` | Photograph sources and asset licences |
 | `http://127.0.0.1:3000/arcade` | Unlimited practice of both new minigames, without records or rewards |
 
-Development organiser key: `polar-local` only when `ADMIN_TOKEN` is unset. A production server has no default organiser key. Set your own key through `.env.local` or the process environment. `.env.example` is a template, not a secret. Do not commit secrets or the data directory.
+Development uses `polar-local` as the organiser key when `ADMIN_TOKEN` is unset. Configure your own credentials through `.env.local` or the process environment. The [README](../README.md#run-locally) lists the available settings. Keep credentials and the data directory local.
 
 ## Phones and venue networking
 
@@ -47,13 +47,13 @@ The LAN script refuses to start without a non-default organiser key. Default loo
 - `npm run build`: production compile.
 - `npm run test:e2e`: after building, phone gameplay, resume, results, moderation, responsive layouts and 40 concurrent API players on production port 3001 with an isolated database.
 
-Install the test browser once using `PLAYWRIGHT_BROWSERS_PATH=./.playwright` and `npm exec playwright -- install chromium`; PowerShell syntax is in the root README. Browser screenshots go into `screenshots/`, traces into `test-results/`; both are ignored. Tests create uniquely named SQLite files under `data/`, leaving attendee data untouched.
+Install the test browser once using `PLAYWRIGHT_BROWSERS_PATH=./.playwright` and `npm exec playwright -- install chromium`. In PowerShell, set `$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.playwright'` before running the install command. Browser screenshots go into `screenshots/` and traces go into `test-results/`. Tests create uniquely named SQLite files under `data/`.
 
 If the bundled browser download is unavailable on Windows, set `PLAYWRIGHT_CHANNEL=msedge` to test with an installed Microsoft Edge instead. This does not modify the user's Edge profile; Playwright launches an isolated headless profile.
 
 The display polls every five seconds and retains scores during a temporary connection failure. A lost phone connection shows a retry message. Refresh reloads the last committed turn using the browser's recovery key. Clearing site storage loses that key but does not delete the stored run.
 
-Use the isolated `npm run test:e2e` 40-player scenario for current 0.8 concurrency checks. It exercises one multi-card package per ordinary round, special-round skips, idempotency and tampering checks on port 3001 with a fresh database. The phone scenario also plays both arcade courses and compares the cleanup claim with deterministic replay. Separate practice scenarios cover responsive canvases, pause and controls. Other scenarios cover two-start quotas, admin correction/trash/restore, reduced motion, keyboard and country-popover fallback. `scripts/smoke-load.mjs` is an older seven-turn tool targeting the preview by default; it has not been migrated to 0.8 and must not be used for current verification or against attendee data.
+Use the isolated `npm run test:e2e` 40-player scenario for gameplay concurrency checks. It exercises one multi-card package per ordinary round, special-round skips, idempotency and tampering checks on port 3001 with a fresh database. The phone scenario also plays both arcade courses and compares the cleanup claim with deterministic replay. Separate practice scenarios cover responsive canvases, pause and controls. Other scenarios cover two-start quotas, admin correction/trash/restore, reduced motion, keyboard and country-popover fallback.
 
 Next.js is pinned to 16.4.3 as of 2026-10-27. The compatible patch resolved the security reminder that interrupted earlier 16.4.0 startup/build processes. The post-install dependency audit reported zero vulnerabilities; this is a point-in-time dependency check, not an application security guarantee. Start a new game from home for 0.8, or use `/arcade` for immediate no-reward practice; an existing saved run intentionally keeps its older rules/challenges.
 

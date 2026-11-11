@@ -1,5 +1,11 @@
 # Implementation progress
 
+## 2026-11-11 — repository documentation and licence
+
+Rewrote the README for the current game, including local setup, hosted scoring, admin exports and backups. Added the MIT licence for the original game code and documentation. The artwork and flags retain their own attribution and terms. Removed the unused environment template, obsolete seven-round load script and duplicate context pointer.
+
+Verified README paths and anchors, package licence metadata, and that the local environment files are still ignored. The live game, leaderboard, arcade, credits and admin routes returned HTTP 200.
+
 ## 2026-11-10 — full leaderboard and local backup
 
 Removed the 10-row public display cap and the 100-entry public API cap in both stores. Verified, visible games remain eligible under the same rules, with existing ordering, ties and manual placement. Added a read-only backup command that saves the public standings as local CSV and JSON. Saved an initial snapshot of eight ranked entries before deployment.

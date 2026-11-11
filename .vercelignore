@@ -3,7 +3,6 @@
 node_modules
 data
 .env*
-!.env.example
 screenshots
 test-results
 playwright-report

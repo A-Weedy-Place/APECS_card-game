@@ -1,54 +1,87 @@
-# COP31 Cryosphere Pavilion game
+# Cryosphere Futures
 
-A local APECS engagement prototype with ten 2026 planning rounds,67 distinct-photo cards, progressive paths across all 19 En-ROADS controls and three resources: Revenue growth, Politics and Public engagement. Two optional arcade games remain: Flappy Flight and Reef Rescue. New 0.9 results rank by lower displayed2100 temperature, then shorter play time.
+Cryosphere Futures is a browser-based climate policy card game built for the APECS UNFCCC Project Group and the COP31 Cryosphere Pavilion. Players adopt policies, manage their budget and see the projected 2100 warming for their final scenario in En-ROADS.
 
-Select up to three affordable offered cards and commit once per ordinary round. Start 8 coins/cap 20, with Play/Shuffle/Skip. A browser pass allows two starts; organiser tools reset it for testing without deleting games. Start fresh for 0.9; older saves retain original rules. [Current 0.9 architecture and limitations](context/13-v9-model-game.md). [Practice both games](http://127.0.0.1:3000/arcade) without using a play or earning rewards.
+[Play the game](https://apecs-card-game.vercel.app/) · [Live leaderboard](https://apecs-card-game.vercel.app/leaderboard) · [Arcade practice](https://apecs-card-game.vercel.app/arcade) · [Card guide](public/card-guide.md)
 
-An **experimental local browser bridge** enters complete anonymous scenarios into the official public En-ROADS26.10.0 UI, verifies all 19 values and reads displayed temperature. Finish a new game and press Calculate temperature. No invented temperature is substituted on failure. Not an SDK, supported API or event-ready hosting solution; SDK access/terms are being arranged. It requires network access and installed Edge/Playwright, takes tens of seconds uncached, serialises jobs and caches identical packages. Development enables it by default; set ENROADS_BROWSER_ENABLED=0 to disable. Production requires explicit1 for local experiments. Do not assume it works on Vercel.
+## How it plays
 
-## Start
+- Choose up to three affordable cards in each of 12 policy rounds. The 35-card catalogue includes 26 cards mapped to all 19 En-ROADS controls and nine cards for revenue, politics and public engagement.
+- Start with eight coins and earn four per ordinary policy round at the starting revenue level. Three revenue upgrades can bring that to five, six and eight coins per round. The wallet holds up to 20 coins.
+- Play Flappy Flight and Reef Rescue after rounds four and eight for extra coins. Both games also have a separate practice mode.
+- A finished game automatically submits its scenario for evaluation. The leaderboard shows all visible, verified results and ranks them by lower projected warming, then shorter play time.
 
-Requires Node 22.13+.
+## Run locally
 
-```powershell
-npm install
+Use **Node.js 22.13 or later in the 22.x line** and npm.
+
+```sh
+npm ci
 npm run dev
 ```
 
-Open [the game](http://127.0.0.1:3000), [the display board](http://127.0.0.1:3000/leaderboard) or [organiser tools](http://127.0.0.1:3000/admin). The local development organiser key is `polar-local` unless `ADMIN_TOKEN` is set. Scores persist in `data/game.sqlite`, which is ignored by Git.
+Open the game at `http://127.0.0.1:3000`. The default database is `data/game.sqlite`. The development admin password is `polar-local` unless you configure your own. [Local game](http://127.0.0.1:3000) · [Local admin](http://127.0.0.1:3000/admin)
 
-For phone testing, choose a private organiser key first:
+Put optional settings in an ignored `.env.local` file or export them in your shell. `npm run dev:lan` lets phones on the same network connect to the development server and requires a private organiser credential. Set the QR join URL in Admin to the laptop’s reachable address. [Local operations](context/05-operations.md#phones-and-venue-networking)
 
-```powershell
-$env:ADMIN_TOKEN = 'your-long-private-organiser-key'
-npm run dev:lan
+| Setting | Use |
+| --- | --- |
+| `ADMIN_TOKEN` | Local organiser password |
+| `ADMIN_PASSWORD_HASH`, `ADMIN_SESSION_SECRET` | Hosted organiser login and session signing |
+| `DATABASE_PATH` | Optional local SQLite path |
+| `DATABASE_URL` | PostgreSQL connection for hosted storage |
+| `NEXT_PUBLIC_GAME_URL` | Public join URL used as the QR fallback |
+| `ENROADS_BROWSER_ENABLED` | Set to `0` to disable local simulator automation |
+| `ENROADS_BROWSER_CHANNEL` | Browser channel used for local evaluation, with Edge as the app default |
+| `MODEL_QUEUE_ENABLED` | Set to `1` in the hosted game to queue model jobs in PostgreSQL |
+
+## Host and operate
+
+The live game uses Next.js on Vercel and Supabase PostgreSQL for game state, model jobs and the result cache. A separate Vercel worker uses Playwright to evaluate queued scenarios. An optional Windows worker can take waiting jobs when the laptop is signed in and online. [Hosting and admin](context/14-hosting-admin.md) · [Scoring worker setup](context/15-v10-experience-worker.md)
+
+The evaluator uses the public En-ROADS simulator and verifies the full set of model inputs before saving a temperature. En-ROADS outputs are conditional projections. Card costs, approval odds and social effects are game-design assumptions. En-ROADS is a tool created by Climate Interactive and MIT Sloan. [Model use and citation guidance](https://support.climateinteractive.org/support/solutions/articles/47001266571-how-to-use-and-cite-en-roads-and-c-roads)
+
+Use Admin to manage game records, reset play allowances, configure the display QR and export event records. Save a timestamped CSV and JSON copy of the live standings from the project folder with the following command. The files go in `data/leaderboard-backups`. [Live admin](https://apecs-card-game.vercel.app/admin)
+
+```sh
+node --import tsx scripts/backup-leaderboard.ts
 ```
 
-In Admin, set the display QR join address to the laptop's reachable LAN URL. Localhost does not work from other devices. Venue network and firewall configuration are not changed automatically.
+## Test and verify
 
-## Verify
-
-```powershell
+```sh
 npm test
 npm run typecheck
 npm run build
-$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.playwright'
-npm exec playwright -- install chromium
+```
+
+For browser tests, install Chromium in the project’s Playwright directory, then run the suite against the completed build. The test server uses port `3001` and a separate SQLite database.
+
+```sh
+PLAYWRIGHT_BROWSERS_PATH=./.playwright npm exec playwright -- install chromium
 npm run test:e2e
 ```
 
-Browser tests require a completed build, start an isolated production server on port 3001 and use separate databases. The user preview remains on port 3000. Production operation uses `npm run build` then `npm start`; set `ADMIN_TOKEN` to enable organiser access outside development.
+On Windows with Edge installed, you can run the suite with Edge.
 
-On Windows with Microsoft Edge installed, `$env:PLAYWRIGHT_CHANNEL = 'msedge'` before `npm run test:e2e` avoids downloading a test browser.
+```powershell
+$env:PLAYWRIGHT_CHANNEL = 'msedge'
+npm run test:e2e
+```
 
-## Project map
+## Repository layout
 
-[Context index](context/README.md) routes future work to the relevant notes. [Game rules](context/02-game.md) explain all current balancing values. [Architecture](context/03-architecture.md) describes server ownership, persistence and concurrency. [Model integration](context/04-models.md) lists requirements for honest climate output. [Next work](context/07-next.md) orders playtesting, science and deployment preparation.
+| Path | Contents |
+| --- | --- |
+| [`src/app`](src/app) and [`src/components`](src/components) | Web pages, API routes and UI |
+| [`src/game`](src/game) | Rules, card catalogue, arcade mechanics and ranking |
+| [`src/server`](src/server) | Persistence, admin access and model queue |
+| [`scripts`](scripts) and [`deploy/model-worker`](deploy/model-worker) | Operations, diagnostics and scoring-worker deployment |
+| [`supabase/migrations`](supabase/migrations) and [`tests`](tests) | Database schema and verification |
+| [`context`](context/README.md) | Project notes and maintenance history |
 
-The frontend uses React, TypeScript, Motion, Lucide and QRCodeSVG. Next.js serves the UI/APIs; Node SQLite provides local persistence. Artwork and flags are local. Playing needs no external account; the optional experimental temperature calculation needs the official public simulator online. `node scripts/verify-model-runtime.mjs` runs a live smoke test using its own port3002/database, never attendee records.
+## Licence and credits
 
-Original artwork and prompts are in [art provenance](public/art/PROVENANCE.md): a polar background and two atlases with 24 scenes. Version 0.5 keeps current rankings separate; saved 0.4 games retain fourteen dated decisions and 0.1–0.3 retain seven. Start from the home form for new rules. `npx tsx scripts/balance-report.ts --samples=100` now probes multiple plays and explicit round endings on shared seeds without changing the database. Current evidence is recorded in [Progress](context/06-progress.md) and is not a substitute for human playtesting. [Research/debate](context/08-mechanics-research.md) records game references; [En-ROADS mapping](context/09-enroads-mapping.md) documents 17 controls, timing and SDK access.
+The original game code and documentation are licensed under MIT. [MIT License](LICENSE)
 
-## Before an event
-
-Obtain supported SDK/API access and confirm project-specific terms before an event. Independently review mappings/timing and compare complete scenarios. The public-UI prototype is fragile, serial and not a high-concurrency production backend. Targets, costs, approval odds and social effects remain designer assumptions even when the physical scenario is evaluated by En-ROADS. Adoption2026 does not imply instant implementation. Justice/adaptation do not automatically lower temperature. Prize fairness, privacy, retention, human balance and physical iPhone/Safari testing remain pending. Hosted deployment needs durable storage, proper workers, stronger authentication/rate limits and venue rehearsal. Archived game indices never become climate predictions.
+Photographs and flag assets carry the terms listed in their attribution records. [Game credits](https://apecs-card-game.vercel.app/credits) · [Artwork provenance](public/art/PROVENANCE.md) · [Flag licence](public/flags/LICENSE.txt)
