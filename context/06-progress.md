@@ -8,6 +8,10 @@ Restarting the laptop backup completed Ali's exact package at +2.9°C in 17.8 se
 
 The old PowerShell task repeatedly exited with 0xC000013A. Added a windowless Windows Script Host launcher that waits for hidden PowerShell/Node, plus a five-minute retry trigger and existing single-instance guard. Admin records now expose model status/error so an interrupted calculation is visible instead of generic Pending. Verified three focused admin storage tests, production build/typecheck and one isolated Edge admin/display regression. The new launcher remained Running across subsequent commands with one worker and an empty error log. Longer survival, production game publication and live post-deployment checks are pending at this checkpoint.
 
+Production source `44dc958` is READY as `dpl_FN5ouvpMjxUTLkRson1cyNp4rKzr` at https://apecs-card-game.vercel.app. Read-only live checks verified Ali's 2.9°C and unchanged 181510ms in the public leaderboard, `complete` in the updated authenticated admin API, and the deployed waiting/paused status labels. The windowless task kept the same single worker PID across later commands, with no error output. This restores laptop processing, not the quota-stopped cloud daemon. A prolonged outage test and event-scale load remain unverified.
+
+Refreshed the local standings backup after the additional result: `data/leaderboard-backups/leaderboard-2026-11-24_15-39-38.csv` and `.json` contain fourteen ranked entries. These files remain local and ignored by Git.
+
 ## 2026-11-11 — repository documentation and licence
 
 Rewrote the README for the current game, including local setup, hosted scoring, admin exports and backups. Added the MIT licence for the original game code and documentation. The artwork and flags retain their own attribution and terms. Removed the unused environment template, obsolete seven-round load script and duplicate context pointer.
