@@ -216,7 +216,8 @@ export function adminRecords(page = 1, query = ""): AdminData {
       score: row.score_override ?? state.score, originalScore: state.score, hidden: !!row.hidden, deleted: !!row.deleted,
       finishedAt: state.finishedAt, startedAt: state.startedAt, round: state.round, rulesVersion: state.rulesVersion,
       revision: row.control_revision, elapsedMs: state.elapsedMs, manualRank: row.manual_rank ?? undefined,
-      playsUsed: row.plays_used ?? undefined, temperatureC: model?.status === "complete" ? model.temperatureC : undefined };
+      playsUsed: row.plays_used ?? undefined, modelEvaluation: model ?? undefined,
+      temperatureC: model?.status === "complete" ? model.temperatureC : undefined };
   });
   return { records, total, page, pages, stats: stats(), entries: leaderboard(true) };
 }

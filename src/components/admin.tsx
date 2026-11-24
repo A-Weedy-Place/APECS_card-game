@@ -9,6 +9,7 @@ import { stagedRules, stageRoundLabel } from "@/game/v11-schedule";
 import { COUNTRY_CODES, countryName } from "@/lib/countries";
 import { CountryPicker, Flag } from "./country-picker";
 const countries = COUNTRY_CODES.map(code => ({ code, name: countryName(code) })).sort((a,b) => a.name.localeCompare(b.name));
+const calculationLabels = { idle: "Not queued", queued: "Waiting for model", running: "Calculating…", failed: "Calculation paused", complete: "Calculated" };
 export function Admin() {
   const [token, setToken] = useState(""), [password,setPassword]=useState(""), [data, setData] = useState<AdminData | null>(null);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false), [query, setQuery] = useState("");
@@ -106,7 +107,8 @@ export function Admin() {
           return <tr key={record.id} className={record.deleted ? "removed-entry" : record.hidden ? "hidden-entry" : ""}>
             <td>{record.nickname}<small>{record.rulesVersion} · {record.finishedAt ? "Finished" : round === "★" ? "Arcade break" : `Round ${round}`}</small></td>
             <td><Flag code={record.country}/> {countryName(record.country)}</td>
-            <td>{modelRules(record.rulesVersion) ? record.temperatureC === undefined ? "Pending" : `+${record.temperatureC.toFixed(1)}°C` : record.score ?? "—"}
+            <td>{modelRules(record.rulesVersion) ? record.temperatureC === undefined ? record.finishedAt ? calculationLabels[record.modelEvaluation?.status ?? "idle"] : "—" : `+${record.temperatureC.toFixed(1)}°C` : record.score ?? "—"}
+              {record.modelEvaluation?.error && <small>{record.modelEvaluation.error}</small>}
               {record.elapsedMs !== undefined && <small>{formatTime(record.elapsedMs)}</small>}
               {record.manualRank !== undefined && <small>Manual position {record.manualRank}</small>}
               {record.score !== record.originalScore && <small>Originally {record.originalScore}</small>}

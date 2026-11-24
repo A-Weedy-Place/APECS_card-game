@@ -39,6 +39,8 @@ Put optional settings in an ignored `.env.local` file or export them in your she
 
 The live game uses Next.js on Vercel and Supabase PostgreSQL for game state, model jobs and the result cache. A separate Vercel worker uses Playwright to evaluate queued scenarios. An optional Windows worker can take waiting jobs when the laptop is signed in and online. [Hosting and admin](context/14-hosting-admin.md) · [Scoring worker setup](context/15-v10-experience-worker.md)
 
+Vercel's Hobby Daemon allowance is five CPU hours per month. If it is exhausted, cloud scoring stops until the quota resets or the plan changes. The Windows backup can process waiting jobs while the PC stays signed in, awake and online. Check the worker logs when finished games have no temperature.
+
 The evaluator uses the public En-ROADS simulator and verifies the full set of model inputs before saving a temperature. En-ROADS outputs are conditional projections. Card costs, approval odds and social effects are game-design assumptions. En-ROADS is a tool created by Climate Interactive and MIT Sloan. [Model use and citation guidance](https://support.climateinteractive.org/support/solutions/articles/47001266571-how-to-use-and-cite-en-roads-and-c-roads)
 
 Use Admin to manage game records, reset play allowances, configure the display QR and export event records. Save a timestamped CSV and JSON copy of the live standings from the project folder with the following command. The files go in `data/leaderboard-backups`. [Live admin](https://apecs-card-game.vercel.app/admin)

@@ -1,5 +1,13 @@
 # Implementation progress
 
+## 2026-11-24 — pending-score incident and recovery
+
+Ali's completed November 23 game had a queued model job with zero attempts. Both workers were stopped. After renewed Vercel CLI authorisation, scaling, resuming and redeploying the existing worker did not restore its instance. The new worker deployment `dpl_BRDPNrt56buuUGnYCabrRahzmvDw` is READY, but its daemon system log says the team exhausted the Hobby allowance of five CPU hours this month. Cloud scoring remains quota-blocked; no paid upgrade was made.
+
+Restarting the laptop backup completed Ali's exact package at +2.9°C in 17.8 seconds and a later waiting package at +3.0°C in 9.9 seconds. Verified Ali's unchanged 3:01.51 play time and leaderboard inclusion. Saved a new local CSV/JSON snapshot containing thirteen ranked games under `data/leaderboard-backups/leaderboard-2026-11-24_15-29-08.*`.
+
+The old PowerShell task repeatedly exited with 0xC000013A. Added a windowless Windows Script Host launcher that waits for hidden PowerShell/Node, plus a five-minute retry trigger and existing single-instance guard. Admin records now expose model status/error so an interrupted calculation is visible instead of generic Pending. Verified three focused admin storage tests, production build/typecheck and one isolated Edge admin/display regression. The new launcher remained Running across subsequent commands with one worker and an empty error log. Longer survival, production game publication and live post-deployment checks are pending at this checkpoint.
+
 ## 2026-11-11 — repository documentation and licence
 
 Rewrote the README for the current game, including local setup, hosted scoring, admin exports and backups. Added the MIT licence for the original game code and documentation. The artwork and flags retain their own attribution and terms. Removed the unused environment template, obsolete seven-round load script and duplicate context pointer.

@@ -56,3 +56,21 @@ test("manual placement reorders verified results while retaining the model tempe
   editRecord(moved, 1, { manualRank: null });
   assert.deepEqual(leaderboard().map(entry => entry.id), automaticOrder);
 });
+
+test("admin exposes interrupted calculations instead of concealing them as pending", () => {
+  const session = startRun("Interrupted Result", "PK");
+  let run = session.run;
+  while (!run.finishedAt) run = actOnRun(run.id, session.token, "save", run.revision, randomUUID());
+  const settings = defaultSettings();
+  saveModelStatus(settings, "queued");
+  assert.equal(adminRecords(1, session.run.id).records[0].modelEvaluation?.status, "queued");
+  const db = new DatabaseSync(process.env.DATABASE_PATH!);
+  try {
+    db.prepare("UPDATE model_evaluations SET updated_at=? WHERE status='queued'")
+      .run(new Date(Date.now() - 32 * 60 * 1000).toISOString());
+  } finally { db.close(); }
+  const record = adminRecords(1, session.run.id).records[0];
+  assert.equal(record.modelEvaluation?.status, "failed");
+  assert.match(record.modelEvaluation?.error ?? "", /interrupted/);
+  assert.equal(record.temperatureC, undefined);
+});
